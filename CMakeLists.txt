@@ -14,6 +14,7 @@ add_library(cpullm
   src/cpu.cpp
   src/engine.cpp
   src/graph.cpp
+  src/llama_compat.cpp
   src/matmul.cpp
   src/model.cpp
   src/tokenizer.cpp
@@ -33,6 +34,9 @@ endif()
 
 add_executable(cpullm-cli apps/cpullm-cli.cpp)
 target_link_libraries(cpullm-cli PRIVATE cpullm)
+
+add_executable(llama-cli apps/cpullm-cli.cpp)
+target_link_libraries(llama-cli PRIVATE cpullm)
 
 if(CPULLM_BUILD_EXAMPLES)
   add_executable(cpullm-minimal examples/minimal.cpp)
