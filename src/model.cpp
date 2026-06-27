@@ -3,6 +3,7 @@
 #include <fstream>
 #include <sstream>
 #include <stdexcept>
+#include <string>
 
 namespace cpullm {
 
@@ -11,6 +12,10 @@ static std::string trim(std::string s) {
   const auto last = s.find_last_not_of(" \t\r\n\",");
   if (first == std::string::npos) return {};
   return s.substr(first, last - first + 1);
+}
+
+static bool ends_with(std::string_view s, std::string_view suffix) {
+  return s.size() >= suffix.size() && s.substr(s.size() - suffix.size()) == suffix;
 }
 
 Model Model::load_manifest(std::string_view path) {
@@ -32,6 +37,21 @@ Model Model::load_manifest(std::string_view path) {
   return model;
 }
 
+Model Model::load(std::string_view path) {
+  if (ends_with(path, ".gguf")) {
+    Model model;
+    model.metadata_.format = ModelFormat::gguf_probe;
+    model.metadata_.name = std::string{path};
+    model.metadata_.gguf = probe_gguf(path);
+    if (!model.metadata_.gguf.valid) throw std::runtime_error("invalid or unsupported GGUF file");
+    model.metadata_.parameters = static_cast<std::size_t>(model.metadata_.gguf.tensor_count);
+    return model;
+  }
+  return load_manifest(path);
+}
+
 const ModelMetadata& Model::metadata() const noexcept { return metadata_; }
+const TensorStore& Model::tensors() const noexcept { return tensors_; }
+TensorStore& Model::tensors() noexcept { return tensors_; }
 
 } // namespace cpullm

@@ -26,6 +26,25 @@ int main() {
   assert(ids.size() == 3);
   assert(tok.decode(ids) == "hello <unk> world");
 
+  auto q = cpullm::quantize_q4_0(std::span<const float>(a, 6));
+  const float dot = cpullm::dot_q4_0_f32(q, std::span<const float>(a, 6));
+  assert(dot > 80.0f);
+
+  cpullm::Sampler greedy({.max_tokens = 1, .temperature = 0.0f});
+  const float logits[] = {0.1f, 2.0f, 0.3f};
+  assert(greedy.sample(logits) == 1);
+
+  cpullm::KVCache cache(2, 4, 1, 8);
+  assert(cache.capacity_tokens() == 4);
+  assert(cache.bytes() == 2 * 4 * 1 * 8 * 2 * sizeof(float));
+  assert(cache.append_slot());
+
+  cpullm::Model model = cpullm::Model::load_manifest("examples/toy-model.yml");
+  cpullm::InferenceSession session(model, {.max_tokens = 3, .temperature = 0.0f});
+  std::size_t streamed = 0;
+  session.generate_stream("hello", [&](const cpullm::TokenEvent&) { ++streamed; return true; });
+  assert(streamed == 3);
+
   cpullm::Graph g;
   assert(g.add_node("matmul") == 0);
   assert(g.size() == 1);

@@ -2,6 +2,8 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <functional>
+#include <optional>
 #include <span>
 #include <string>
 #include <string_view>
@@ -41,6 +43,8 @@ private:
 
 enum class DataType : std::uint8_t { f32, q4_0 };
 
+std::size_t dtype_size(DataType dtype);
+
 struct TensorView {
   DataType dtype = DataType::f32;
   std::vector<std::size_t> shape;
@@ -58,6 +62,32 @@ struct MatmulPlan {
 
 void matmul_f32(const float* a, const float* b, float* c, MatmulPlan plan);
 
+struct Q4Block {
+  float scale = 0.0f;
+  std::uint8_t packed[16]{};
+};
+
+std::vector<Q4Block> quantize_q4_0(std::span<const float> values);
+float dot_q4_0_f32(std::span<const Q4Block> quantized, std::span<const float> x);
+void matvec_q4_0_f32(std::span<const Q4Block> rows, std::span<const float> x,
+                     std::span<float> y, std::size_t cols);
+
+class TensorStore {
+public:
+  void add(std::string name, DataType dtype, std::vector<std::size_t> shape, std::vector<std::byte> data);
+  const TensorView* find(std::string_view name) const noexcept;
+  std::size_t size() const noexcept;
+
+private:
+  struct Entry {
+    std::string name;
+    DataType dtype;
+    std::vector<std::size_t> shape;
+    std::vector<std::byte> data;
+  };
+  std::vector<Entry> entries_;
+};
+
 class Tokenizer {
 public:
   explicit Tokenizer(std::vector<std::string> vocab = {});
@@ -69,31 +99,102 @@ private:
   std::vector<std::string> vocab_;
 };
 
+enum class ModelFormat : std::uint8_t { manifest, gguf_probe };
+
+struct GgufProbe {
+  bool valid = false;
+  std::uint32_t version = 0;
+  std::uint64_t tensor_count = 0;
+  std::uint64_t metadata_count = 0;
+};
+
+GgufProbe probe_gguf(std::string_view path);
+
 struct ModelMetadata {
   std::string name = "unknown";
   std::string architecture = "decoder-only";
   std::size_t parameters = 0;
   std::size_t context_length = 0;
+  ModelFormat format = ModelFormat::manifest;
+  GgufProbe gguf;
 };
 
 class Model {
 public:
   static Model load_manifest(std::string_view path);
+  static Model load(std::string_view path);
   const ModelMetadata& metadata() const noexcept;
+  const TensorStore& tensors() const noexcept;
+  TensorStore& tensors() noexcept;
 
 private:
   ModelMetadata metadata_;
+  TensorStore tensors_;
 };
 
 struct GenerationConfig {
   std::size_t max_tokens = 32;
   float temperature = 0.8f;
+  std::size_t top_k = 40;
+  float top_p = 0.95f;
+  std::uint64_t seed = 0;
+};
+
+struct TokenEvent {
+  std::uint32_t id = 0;
+  std::string text;
+  std::size_t index = 0;
+};
+
+using TokenCallback = std::function<bool(const TokenEvent&)>;
+
+class Sampler {
+public:
+  explicit Sampler(GenerationConfig config);
+  std::uint32_t sample(std::span<const float> logits);
+
+private:
+  GenerationConfig config_;
+  std::uint64_t state_;
+};
+
+class KVCache {
+public:
+  KVCache(std::size_t layers, std::size_t context, std::size_t heads, std::size_t head_dim);
+  std::size_t bytes() const noexcept;
+  std::size_t capacity_tokens() const noexcept;
+  void reset() noexcept;
+  bool append_slot() noexcept;
+
+private:
+  std::size_t layers_ = 0;
+  std::size_t context_ = 0;
+  std::size_t heads_ = 0;
+  std::size_t head_dim_ = 0;
+  std::size_t used_tokens_ = 0;
+  std::vector<float> keys_;
+  std::vector<float> values_;
+};
+
+class InferenceSession {
+public:
+  InferenceSession(const Model& model, GenerationConfig config = {});
+  std::string generate(std::string_view prompt);
+  void generate_stream(std::string_view prompt, const TokenCallback& callback);
+  const KVCache& kv_cache() const noexcept;
+
+private:
+  const Model& model_;
+  GenerationConfig config_;
+  Tokenizer tokenizer_;
+  KVCache kv_cache_;
 };
 
 class Engine {
 public:
   explicit Engine(Model model);
   std::string generate(std::string_view prompt, const GenerationConfig& config = {});
+  void generate_stream(std::string_view prompt, const GenerationConfig& config, const TokenCallback& callback);
   const Model& model() const noexcept;
 
 private:

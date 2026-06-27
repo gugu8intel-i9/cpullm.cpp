@@ -24,7 +24,7 @@ extern "C" llama_context_params llama_context_default_params(void) {
 extern "C" llama_model* llama_load_model_from_file(const char* path, llama_context_params) {
   if (!path) return nullptr;
   try {
-    return new llama_model(cpullm::Model::load_manifest(path));
+    return new llama_model(cpullm::Model::load(path));
   } catch (...) {
     return nullptr;
   }

@@ -13,6 +13,11 @@ add_library(cpullm
   src/arena.cpp
   src/cpu.cpp
   src/engine.cpp
+  src/gguf.cpp
+  src/quant.cpp
+  src/sampler.cpp
+  src/session.cpp
+  src/tensor.cpp
   src/graph.cpp
   src/llama_compat.cpp
   src/matmul.cpp
@@ -37,6 +42,9 @@ target_link_libraries(cpullm-cli PRIVATE cpullm)
 
 add_executable(llama-cli apps/cpullm-cli.cpp)
 target_link_libraries(llama-cli PRIVATE cpullm)
+
+add_executable(cpullm-bench benchmarks/bench_core.cpp)
+target_link_libraries(cpullm-bench PRIVATE cpullm)
 
 if(CPULLM_BUILD_EXAMPLES)
   add_executable(cpullm-minimal examples/minimal.cpp)
