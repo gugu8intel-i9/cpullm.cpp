@@ -1,0 +1,4 @@
+name: toy-foundation
+architecture: decoder-only
+parameters: 0
+context_length: 128
