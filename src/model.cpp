@@ -4,6 +4,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <algorithm>
 
 namespace cpullm {
 
@@ -63,6 +64,22 @@ Model Model::load(std::string_view path) {
     model.metadata_.attention_heads = parse_u32("lfm2.attention.head_count");
     model.metadata_.attention_kv_heads = parse_u32("lfm2.attention.head_count_kv");
     model.metadata_.vocab_size = parse_u32("lfm2.vocab_size");
+    for (const auto& t : model.gguf_file_->tensors()) {
+      auto lower = t.name;
+      std::transform(lower.begin(), lower.end(), lower.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+      if (lower.find("mtp") != std::string::npos || lower.find("draft") != std::string::npos) {
+        model.metadata_.mtp.present = true;
+        model.metadata_.mtp.tensor_names.push_back(t.name);
+      }
+    }
+    model.metadata_.mtp.head_count = model.metadata_.mtp.tensor_names.size();
+    for (const auto& e : model.gguf_file_->metadata()) {
+      auto lower = e.key;
+      std::transform(lower.begin(), lower.end(), lower.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+      if (lower.find("mtp") != std::string::npos || lower.find("draft") != std::string::npos) {
+        model.metadata_.mtp.present = true;
+      }
+    }
     model.metadata_.parameters = static_cast<std::size_t>(model.gguf_file_->tensor_count());
     return model;
   }

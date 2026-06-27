@@ -31,7 +31,10 @@ int main() {
   const float dot = cpullm::dot_q4_0_f32(q, std::span<const float>(a, 6));
   assert(dot > 80.0f);
 
-  cpullm::Sampler greedy({.max_tokens = 1, .temperature = 0.0f});
+  cpullm::GenerationConfig greedy_cfg;
+  greedy_cfg.max_tokens = 1;
+  greedy_cfg.temperature = 0.0f;
+  cpullm::Sampler greedy(greedy_cfg);
   const float logits[] = {0.1f, 2.0f, 0.3f};
   assert(greedy.sample(logits) == 1);
 
@@ -56,10 +59,44 @@ int main() {
   assert(gguf.version() == 3);
 
   cpullm::Model model = cpullm::Model::load_manifest("examples/toy-model.yml");
-  cpullm::InferenceSession session(model, {.max_tokens = 3, .temperature = 0.0f});
+  cpullm::GenerationConfig session_cfg;
+  session_cfg.max_tokens = 3;
+  session_cfg.temperature = 0.0f;
+  cpullm::InferenceSession session(model, session_cfg);
   std::size_t streamed = 0;
   session.generate_stream("hello", [&](const cpullm::TokenEvent&) { ++streamed; return true; });
   assert(streamed == 3);
+
+
+  {
+    std::vector<std::uint32_t> ctx = {1};
+    auto stats = cpullm::mtp_greedy_decode(
+        ctx, 4, 3,
+        [](std::span<const std::uint32_t>, std::size_t n) {
+          std::vector<std::uint32_t> out;
+          for (std::size_t i = 0; i < n; ++i) out.push_back(static_cast<std::uint32_t>(2 + i));
+          return out;
+        },
+        [](std::span<const std::uint32_t>, std::span<const std::uint32_t> draft) {
+          return std::vector<std::uint32_t>(draft.begin(), draft.end());
+        },
+        nullptr);
+    assert(stats.accepted_tokens == 4);
+    assert(stats.rejected_tokens == 0);
+    assert(stats.verifier_steps == 2);
+  }
+
+  {
+    std::vector<std::uint32_t> ctx = {1};
+    auto stats = cpullm::mtp_greedy_decode(
+        ctx, 2, 2,
+        [](std::span<const std::uint32_t>, std::size_t) { return std::vector<std::uint32_t>{7, 8}; },
+        [](std::span<const std::uint32_t>, std::span<const std::uint32_t>) { return std::vector<std::uint32_t>{7, 9}; },
+        nullptr);
+    assert(stats.accepted_tokens == 1);
+    assert(stats.rejected_tokens == 1);
+    assert(ctx.back() == 9);
+  }
 
   cpullm::Graph g;
   assert(g.add_node("matmul") == 0);

@@ -22,6 +22,7 @@ add_library(cpullm
   src/llama_compat.cpp
   src/matmul.cpp
   src/model.cpp
+  src/mtp.cpp
   src/tokenizer.cpp
 )
 

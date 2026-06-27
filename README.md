@@ -2,13 +2,13 @@
 
 A high-performance, lightweight, CPU-first LLM runtime foundation designed to become a drop-in alternative to llama.cpp.
 
-> Status: active inference-engine foundation. The project now includes llama.cpp-style CLI entry points, common llama.cpp flag parsing, a minimal llama-compatible C ABI scaffold, streaming generation APIs, session/KV-cache management, sampler stack, internal q4_0 primitives, GGUF-native 18-byte q4_0 mapped matvec, hardened memory-mapped GGUF metadata/tensor-directory loading, tensor storage, mapped-weight benchmark scaffolding with finite deterministic inputs, warning-clean CPU feature detection, arena allocation, tokenizer scaffolding, model manifest loading, tests, and architecture notes.
+> Status: active inference-engine foundation. The project now includes llama.cpp-style CLI entry points, common llama.cpp flag parsing including warning-clean real fail-fast MTP options, a minimal llama-compatible C ABI scaffold, streaming generation APIs, session/KV-cache management, sampler stack, internal q4_0 primitives, GGUF-native 18-byte q4_0 mapped matvec, hardened memory-mapped GGUF metadata/tensor-directory loading, tensor storage, mapped-weight benchmark scaffolding with finite deterministic inputs, warning-clean CPU feature detection, arena allocation, tokenizer scaffolding, model manifest loading, tests, and architecture notes.
 
 ## Goals
 
-- **Drop-in llama.cpp ergonomics:** build a `llama-cli` target and accept common flags like `-m`, `-p`, `-n`, `--temp`, `-c`, `-t`, and `--stream`.
+- **Drop-in llama.cpp ergonomics:** build a `llama-cli` target and accept common flags like `-m`, `-p`, `-n`, `--temp`, `-c`, `-t`, `--stream`, `--spec-type mtp`, and `--spec-draft-n-max`.
 - **Lightweight:** small C++20 core, no required third-party dependencies.
-- **Fast by design:** scratch arenas, zero-copy memory-mapped GGUF tensor access, q4_0 primitives, cache-aware kernels, runtime CPU feature dispatch, and a path toward fused graph execution.
+- **Fast by design:** scratch arenas, zero-copy memory-mapped GGUF tensor access, real MTP accept/reject core, q4_0 primitives, cache-aware kernels, runtime CPU feature dispatch, and a path toward fused graph execution.
 - **Novel architecture:** clean separation between model format probing, tensor storage, session state, sampling, KV cache, and kernels.
 - **Production-oriented:** testable layers, deterministic seeded sampling, streaming callback API, benchmark target, and compatibility wrappers at the edge.
 - **Apache-2.0:** permissive licensing for research and production use.
@@ -70,6 +70,7 @@ Benchmark:
 - `cpullm::quantize_q4_0()` / `matvec_q4_0_f32()` — compact internal quantized kernel primitives for lightweight inference.
 - `cpullm::matvec_gguf_q4_0_f32()` — GGUF-native q4_0 matvec over 18-byte GGML blocks with FP16 scales, avoiding copies/conversion.
 - `cpullm::Sampler` — top-k, top-p, temperature, greedy mode, and deterministic seed support.
+- `cpullm::mtp_greedy_decode()` — real callback-based MTP speculative accept/reject loop with stats; no mock token path.
 - `cpullm::KVCache` — explicit decoder cache capacity and memory accounting.
 - `cpullm::InferenceSession` — reusable generation state with streaming token callbacks.
 - `cpullm::TensorStore` — typed tensor registry for future memory-mapped model weights.
@@ -82,9 +83,9 @@ Benchmark:
 
 ## llama.cpp compatibility
 
-See [docs/llama_compatibility.md](docs/llama_compatibility.md).
+See [docs/llama_compatibility.md](docs/llama_compatibility.md) and [docs/mtp.md](docs/mtp.md).
 
-Today, cpullm.cpp accepts common llama.cpp-style CLI invocations for YAML manifests and can memory-map GGUF metadata/tensor directories. Full LFM2.5 transformer operator execution is the next major milestone; the benchmark report now records llama.cpp as the real CPU baseline cpullm must beat.
+Today, cpullm.cpp accepts common llama.cpp-style CLI invocations for YAML manifests, can memory-map GGUF metadata/tensor directories, and exposes MTP flags that fail fast unless real MTP execution is possible. Full LFM2.5 transformer operator execution is the next major milestone; the benchmark report now records llama.cpp as the real CPU baseline cpullm must beat.
 
 ## Benchmarks
 
@@ -108,8 +109,9 @@ The engine is now structured around reusable sessions, explicit KV cache, quanti
 2. Implement LFM2.5 RMSNorm, RoPE, attention, short-convolution/hybrid blocks, MLP, and logits projection operators.
 3. Add AVX2, AVX-512, and NEON q4_0/q8_0 microkernels behind runtime dispatch.
 4. Implement paged KV cache blocks and batch/decode scheduling.
-5. Broaden llama.cpp CLI and C API compatibility.
-6. Add reproducible benchmarks and profiling scripts against public model families.
+5. Wire MTP draft-head tensors to the verifier/drafter executor for supported architectures.
+6. Broaden llama.cpp CLI and C API compatibility.
+7. Add reproducible benchmarks and profiling scripts against public model families.
 
 ## License
 

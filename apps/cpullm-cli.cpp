@@ -36,7 +36,9 @@ void print_help(const char* argv0) {
       << "  -h, --help               show help\n"
       << "  --version                show version\n"
       << "  --stream                 stream tokens as they are produced\n"
-      << "  --inspect                print model/GGUF metadata and exit\n\n"
+      << "  --inspect                print model/GGUF metadata and exit\n"
+      << "  --spec-type <off|mtp>    speculative decoding mode; MTP is real/fail-fast only\n"
+      << "  --spec-draft-n-max <n>   maximum MTP draft tokens per verifier step\n\n"
       << "status:\n"
       << "  This foundation accepts llama.cpp-style invocations, but full GGUF\n"
       << "  inference compatibility is still on the roadmap. YAML manifests work now.\n";
@@ -60,6 +62,17 @@ std::optional<CliOptions> parse_args(int argc, char** argv) {
     else if (arg == "--version") opt.show_version = true;
     else if (arg == "--stream") opt.stream = true;
     else if (arg == "--inspect") opt.inspect = true;
+    else if (arg == "--spec-type") {
+      auto value = require_value(i, argc, argv, arg);
+      if (!value) return std::nullopt;
+      if (*value == "off" || *value == "none") opt.generation.mtp.mode = cpullm::SpeculativeMode::off;
+      else if (*value == "mtp" || *value == "draft-mtp") opt.generation.mtp.mode = cpullm::SpeculativeMode::mtp;
+      else { std::cerr << "unsupported --spec-type: " << *value << '\n'; return std::nullopt; }
+    } else if (arg == "--spec-draft-n-max") {
+      auto value = require_value(i, argc, argv, arg);
+      if (!value) return std::nullopt;
+      opt.generation.mtp.draft_n_max = static_cast<std::size_t>(std::stoull(*value));
+    }
     else if (arg == "-m" || arg == "--model") {
       auto value = require_value(i, argc, argv, arg);
       if (!value) return std::nullopt;
@@ -124,10 +137,13 @@ int main(int argc, char** argv) {
                 << "feed_forward_length=" << md.feed_forward_length << '\n'
                 << "attention_heads=" << md.attention_heads << '\n'
                 << "attention_kv_heads=" << md.attention_kv_heads << '\n'
-                << "vocab_size=" << md.vocab_size << '\n';
+                << "vocab_size=" << md.vocab_size << '\n'
+                << "mtp_present=" << (md.mtp.present ? "true" : "false") << '\n'
+                << "mtp_head_count=" << md.mtp.head_count << '\n';
       if (const auto* gguf = model.gguf_file()) {
         std::cout << gguf->summary() << '\n';
         std::size_t shown = 0;
+        for (const auto& name : md.mtp.tensor_names) std::cout << "mtp_tensor " << name << '\n';
         for (const auto& t : gguf->tensors()) {
           if (shown++ >= 12) break;
           std::cout << "tensor " << t.name << " type=" << t.ggml_type << " bytes=" << t.bytes << " shape=";
@@ -151,6 +167,8 @@ int main(int argc, char** argv) {
     std::cerr << cpullm::detect_cpu_features().summary()
               << " ctx=" << opt.context_size
               << " threads=" << (opt.threads == 0 ? std::string{"auto"} : std::to_string(opt.threads))
+              << " spec=" << (opt.generation.mtp.mode == cpullm::SpeculativeMode::mtp ? "mtp" : "off")
+              << " draft_n_max=" << opt.generation.mtp.draft_n_max
               << '\n';
     return 0;
   } catch (const std::exception& e) {

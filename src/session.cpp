@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <sstream>
+#include <stdexcept>
 #include <string_view>
 #include <vector>
 
@@ -24,7 +25,15 @@ bool KVCache::append_slot() noexcept {
 }
 
 InferenceSession::InferenceSession(const Model& model, GenerationConfig config)
-    : model_(model), config_(config), kv_cache_(2, std::max<std::size_t>(model.metadata().context_length, 128), 1, 64) {}
+    : model_(model), config_(config), kv_cache_(2, std::max<std::size_t>(model.metadata().context_length, 128), 1, 64) {
+  if (config_.mtp.mode == SpeculativeMode::mtp) {
+    if (config_.mtp.draft_n_max == 0) throw std::invalid_argument("--spec-draft-n-max must be > 0 for MTP");
+    if (!model_.metadata().mtp.present) {
+      throw std::runtime_error("MTP requested, but this GGUF does not expose MTP/draft-head metadata or tensors");
+    }
+    throw std::runtime_error("MTP requested and MTP heads were detected, but cpullm has no full verifier/drafter executor wired yet; refusing to mock MTP");
+  }
+}
 
 std::string InferenceSession::generate(std::string_view prompt) {
   std::ostringstream out;

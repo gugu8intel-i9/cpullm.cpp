@@ -158,6 +158,14 @@ private:
 
 GgufProbe probe_gguf(std::string_view path);
 
+enum class SpeculativeMode : std::uint8_t { off, mtp };
+
+struct MtpCapability {
+  bool present = false;
+  std::size_t head_count = 0;
+  std::vector<std::string> tensor_names;
+};
+
 struct ModelMetadata {
   std::string name = "unknown";
   std::string architecture = "decoder-only";
@@ -171,6 +179,7 @@ struct ModelMetadata {
   std::uint32_t attention_heads = 0;
   std::uint32_t attention_kv_heads = 0;
   std::uint32_t vocab_size = 0;
+  MtpCapability mtp;
 };
 
 class Model {
@@ -188,13 +197,35 @@ private:
   std::unique_ptr<GgufFile> gguf_file_;
 };
 
+struct MtpConfig {
+  SpeculativeMode mode = SpeculativeMode::off;
+  std::size_t draft_n_max = 0;
+};
+
 struct GenerationConfig {
   std::size_t max_tokens = 32;
   float temperature = 0.8f;
   std::size_t top_k = 40;
   float top_p = 0.95f;
   std::uint64_t seed = 0;
+  MtpConfig mtp;
 };
+
+struct MtpStats {
+  std::size_t target_tokens = 0;
+  std::size_t verifier_steps = 0;
+  std::size_t drafted_tokens = 0;
+  std::size_t accepted_tokens = 0;
+  std::size_t rejected_tokens = 0;
+};
+
+using MtpDraftFn = std::function<std::vector<std::uint32_t>(std::span<const std::uint32_t> context, std::size_t draft_n_max)>;
+using MtpVerifyFn = std::function<std::vector<std::uint32_t>(std::span<const std::uint32_t> context, std::span<const std::uint32_t> draft)>;
+using MtpAcceptFn = std::function<bool(std::uint32_t token, bool drafted)>;
+
+MtpStats mtp_greedy_decode(std::vector<std::uint32_t>& context, std::size_t target_tokens,
+                           std::size_t draft_n_max, const MtpDraftFn& draft,
+                           const MtpVerifyFn& verify, const MtpAcceptFn& accept);
 
 struct TokenEvent {
   std::uint32_t id = 0;
