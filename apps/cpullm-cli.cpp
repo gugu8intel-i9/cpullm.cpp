@@ -37,8 +37,9 @@ void print_help(const char* argv0) {
       << "  --version                show version\n"
       << "  --stream                 stream tokens as they are produced\n"
       << "  --inspect                print model/GGUF metadata and exit\n"
-      << "  --spec-type <off|mtp>    speculative decoding mode; MTP is real/fail-fast only\n"
-      << "  --spec-draft-n-max <n>   maximum MTP draft tokens per verifier step\n\n"
+      << "  --spec-type <off|mtp|draft> speculative mode; real/fail-fast only\n"
+      << "  --spec-draft-n-max <n>   maximum draft tokens per verifier step\n"
+      << "  --draft-model <path>     draft model for classic speculative decoding\n\n"
       << "status:\n"
       << "  This foundation accepts llama.cpp-style invocations, but full GGUF\n"
       << "  inference compatibility is still on the roadmap. YAML manifests work now.\n";
@@ -65,13 +66,19 @@ std::optional<CliOptions> parse_args(int argc, char** argv) {
     else if (arg == "--spec-type") {
       auto value = require_value(i, argc, argv, arg);
       if (!value) return std::nullopt;
-      if (*value == "off" || *value == "none") opt.generation.mtp.mode = cpullm::SpeculativeMode::off;
-      else if (*value == "mtp" || *value == "draft-mtp") opt.generation.mtp.mode = cpullm::SpeculativeMode::mtp;
+      if (*value == "off" || *value == "none") opt.generation.speculative.mode = cpullm::SpeculativeMode::off;
+      else if (*value == "mtp" || *value == "draft-mtp") opt.generation.speculative.mode = cpullm::SpeculativeMode::mtp;
+      else if (*value == "draft" || *value == "draft-model" || *value == "speculative") opt.generation.speculative.mode = cpullm::SpeculativeMode::draft_model;
       else { std::cerr << "unsupported --spec-type: " << *value << '\n'; return std::nullopt; }
     } else if (arg == "--spec-draft-n-max") {
       auto value = require_value(i, argc, argv, arg);
       if (!value) return std::nullopt;
-      opt.generation.mtp.draft_n_max = static_cast<std::size_t>(std::stoull(*value));
+      opt.generation.speculative.draft_n_max = static_cast<std::size_t>(std::stoull(*value));
+    } else if (arg == "--draft-model" || arg == "-md" || arg == "--model-draft") {
+      auto value = require_value(i, argc, argv, arg);
+      if (!value) return std::nullopt;
+      opt.generation.speculative.draft_model_path = *value;
+      if (opt.generation.speculative.mode == cpullm::SpeculativeMode::off) opt.generation.speculative.mode = cpullm::SpeculativeMode::draft_model;
     }
     else if (arg == "-m" || arg == "--model") {
       auto value = require_value(i, argc, argv, arg);
@@ -167,8 +174,8 @@ int main(int argc, char** argv) {
     std::cerr << cpullm::detect_cpu_features().summary()
               << " ctx=" << opt.context_size
               << " threads=" << (opt.threads == 0 ? std::string{"auto"} : std::to_string(opt.threads))
-              << " spec=" << (opt.generation.mtp.mode == cpullm::SpeculativeMode::mtp ? "mtp" : "off")
-              << " draft_n_max=" << opt.generation.mtp.draft_n_max
+              << " spec=" << (opt.generation.speculative.mode == cpullm::SpeculativeMode::mtp ? "mtp" : (opt.generation.speculative.mode == cpullm::SpeculativeMode::draft_model ? "draft" : "off"))
+              << " draft_n_max=" << opt.generation.speculative.draft_n_max
               << '\n';
     return 0;
   } catch (const std::exception& e) {

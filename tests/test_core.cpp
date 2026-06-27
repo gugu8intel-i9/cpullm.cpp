@@ -68,6 +68,22 @@ int main() {
   assert(streamed == 3);
 
 
+
+  {
+    std::vector<std::uint32_t> ctx = {10};
+    auto stats = cpullm::speculative_greedy_decode(
+        ctx, 3, 2,
+        [](std::span<const std::uint32_t>, std::size_t n) {
+          return n == 1 ? std::vector<std::uint32_t>{4} : std::vector<std::uint32_t>{4, 5};
+        },
+        [](std::span<const std::uint32_t>, std::span<const std::uint32_t> draft) {
+          return std::vector<std::uint32_t>(draft.begin(), draft.end());
+        },
+        nullptr);
+    assert(stats.accepted_tokens == 3);
+    assert(stats.verifier_steps == 2);
+  }
+
   {
     std::vector<std::uint32_t> ctx = {1};
     auto stats = cpullm::mtp_greedy_decode(

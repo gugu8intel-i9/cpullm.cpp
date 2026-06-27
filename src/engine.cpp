@@ -16,8 +16,8 @@ std::string Engine::generate(std::string_view prompt, const GenerationConfig& co
       << ", temperature=" << config.temperature
       << ", top_k=" << config.top_k
       << ", top_p=" << config.top_p
-      << ", spec=" << (config.mtp.mode == SpeculativeMode::mtp ? "mtp" : "off")
-      << ", draft_n_max=" << config.mtp.draft_n_max
+      << ", spec=" << (config.speculative.mode == SpeculativeMode::mtp ? "mtp" : (config.speculative.mode == SpeculativeMode::draft_model ? "draft" : "off"))
+      << ", draft_n_max=" << config.speculative.draft_n_max
       << ", kv_bytes=" << session.kv_cache().bytes()
       << "]";
   return out.str();

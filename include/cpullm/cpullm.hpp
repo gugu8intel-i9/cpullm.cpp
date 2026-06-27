@@ -158,7 +158,7 @@ private:
 
 GgufProbe probe_gguf(std::string_view path);
 
-enum class SpeculativeMode : std::uint8_t { off, mtp };
+enum class SpeculativeMode : std::uint8_t { off, mtp, draft_model };
 
 struct MtpCapability {
   bool present = false;
@@ -197,10 +197,13 @@ private:
   std::unique_ptr<GgufFile> gguf_file_;
 };
 
-struct MtpConfig {
+struct SpeculativeConfig {
   SpeculativeMode mode = SpeculativeMode::off;
   std::size_t draft_n_max = 0;
+  std::string draft_model_path;
 };
+
+using MtpConfig = SpeculativeConfig;
 
 struct GenerationConfig {
   std::size_t max_tokens = 32;
@@ -208,10 +211,10 @@ struct GenerationConfig {
   std::size_t top_k = 40;
   float top_p = 0.95f;
   std::uint64_t seed = 0;
-  MtpConfig mtp;
+  SpeculativeConfig speculative;
 };
 
-struct MtpStats {
+struct SpeculativeStats {
   std::size_t target_tokens = 0;
   std::size_t verifier_steps = 0;
   std::size_t drafted_tokens = 0;
@@ -219,9 +222,15 @@ struct MtpStats {
   std::size_t rejected_tokens = 0;
 };
 
+using MtpStats = SpeculativeStats;
+
 using MtpDraftFn = std::function<std::vector<std::uint32_t>(std::span<const std::uint32_t> context, std::size_t draft_n_max)>;
 using MtpVerifyFn = std::function<std::vector<std::uint32_t>(std::span<const std::uint32_t> context, std::span<const std::uint32_t> draft)>;
 using MtpAcceptFn = std::function<bool(std::uint32_t token, bool drafted)>;
+
+SpeculativeStats speculative_greedy_decode(std::vector<std::uint32_t>& context, std::size_t target_tokens,
+                                            std::size_t draft_n_max, const MtpDraftFn& draft,
+                                            const MtpVerifyFn& verify, const MtpAcceptFn& accept);
 
 MtpStats mtp_greedy_decode(std::vector<std::uint32_t>& context, std::size_t target_tokens,
                            std::size_t draft_n_max, const MtpDraftFn& draft,
