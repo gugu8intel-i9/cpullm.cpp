@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <functional>
+#include <memory>
 #include <optional>
 #include <span>
 #include <string>
@@ -41,7 +42,7 @@ private:
   std::size_t offset_ = 0;
 };
 
-enum class DataType : std::uint8_t { f32, q4_0 };
+enum class DataType : std::uint8_t { f32, f16, q4_0, q4_1, q8_0, unknown };
 
 std::size_t dtype_size(DataType dtype);
 
@@ -71,6 +72,11 @@ std::vector<Q4Block> quantize_q4_0(std::span<const float> values);
 float dot_q4_0_f32(std::span<const Q4Block> quantized, std::span<const float> x);
 void matvec_q4_0_f32(std::span<const Q4Block> rows, std::span<const float> x,
                      std::span<float> y, std::size_t cols);
+
+float fp16_to_f32(std::uint16_t bits) noexcept;
+float dot_gguf_q4_0_f32(std::span<const std::byte> row, std::span<const float> x);
+void matvec_gguf_q4_0_f32(std::span<const std::byte> rows, std::span<const float> x,
+                          std::span<float> y, std::size_t cols);
 
 class TensorStore {
 public:
@@ -108,6 +114,48 @@ struct GgufProbe {
   std::uint64_t metadata_count = 0;
 };
 
+struct GgufTensorInfo {
+  std::string name;
+  DataType dtype = DataType::unknown;
+  std::uint32_t ggml_type = 0;
+  std::vector<std::uint64_t> shape;
+  std::uint64_t offset = 0;
+  std::uint64_t bytes = 0;
+};
+
+struct GgufMetadataEntry {
+  std::string key;
+  std::string value;
+};
+
+class GgufFile {
+public:
+  GgufFile();
+  GgufFile(GgufFile&&) noexcept;
+  GgufFile& operator=(GgufFile&&) noexcept;
+  GgufFile(const GgufFile&) = delete;
+  GgufFile& operator=(const GgufFile&) = delete;
+  ~GgufFile();
+
+  static GgufFile open(std::string_view path);
+
+  bool valid() const noexcept;
+  std::uint32_t version() const noexcept;
+  std::uint64_t tensor_count() const noexcept;
+  std::uint64_t metadata_count() const noexcept;
+  std::uint32_t alignment() const noexcept;
+  std::span<const GgufTensorInfo> tensors() const noexcept;
+  std::span<const GgufMetadataEntry> metadata() const noexcept;
+  std::optional<std::string> metadata_value(std::string_view key) const;
+  const GgufTensorInfo* find_tensor(std::string_view name) const noexcept;
+  std::span<const std::byte> tensor_bytes(const GgufTensorInfo& tensor) const;
+  std::string summary() const;
+
+private:
+  struct Impl;
+  std::unique_ptr<Impl> impl_;
+};
+
 GgufProbe probe_gguf(std::string_view path);
 
 struct ModelMetadata {
@@ -117,6 +165,12 @@ struct ModelMetadata {
   std::size_t context_length = 0;
   ModelFormat format = ModelFormat::manifest;
   GgufProbe gguf;
+  std::uint32_t block_count = 0;
+  std::uint32_t embedding_length = 0;
+  std::uint32_t feed_forward_length = 0;
+  std::uint32_t attention_heads = 0;
+  std::uint32_t attention_kv_heads = 0;
+  std::uint32_t vocab_size = 0;
 };
 
 class Model {
@@ -126,10 +180,12 @@ public:
   const ModelMetadata& metadata() const noexcept;
   const TensorStore& tensors() const noexcept;
   TensorStore& tensors() noexcept;
+  const GgufFile* gguf_file() const noexcept;
 
 private:
   ModelMetadata metadata_;
   TensorStore tensors_;
+  std::unique_ptr<GgufFile> gguf_file_;
 };
 
 struct GenerationConfig {

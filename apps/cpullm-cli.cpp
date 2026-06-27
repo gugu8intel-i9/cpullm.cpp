@@ -17,6 +17,7 @@ struct CliOptions {
   bool show_help = false;
   bool show_version = false;
   bool stream = false;
+  bool inspect = false;
 };
 
 void print_help(const char* argv0) {
@@ -34,7 +35,8 @@ void print_help(const char* argv0) {
       << "  -t, --threads <count>    worker thread hint; 0 means auto\n"
       << "  -h, --help               show help\n"
       << "  --version                show version\n"
-      << "  --stream                 stream tokens as they are produced\n\n"
+      << "  --stream                 stream tokens as they are produced\n"
+      << "  --inspect                print model/GGUF metadata and exit\n\n"
       << "status:\n"
       << "  This foundation accepts llama.cpp-style invocations, but full GGUF\n"
       << "  inference compatibility is still on the roadmap. YAML manifests work now.\n";
@@ -57,6 +59,7 @@ std::optional<CliOptions> parse_args(int argc, char** argv) {
     if (arg == "-h" || arg == "--help") opt.show_help = true;
     else if (arg == "--version") opt.show_version = true;
     else if (arg == "--stream") opt.stream = true;
+    else if (arg == "--inspect") opt.inspect = true;
     else if (arg == "-m" || arg == "--model") {
       auto value = require_value(i, argc, argv, arg);
       if (!value) return std::nullopt;
@@ -111,6 +114,29 @@ int main(int argc, char** argv) {
     }
 
     auto model = cpullm::Model::load(opt.model_path);
+    if (opt.inspect) {
+      const auto& md = model.metadata();
+      std::cout << "name=" << md.name << '\n'
+                << "architecture=" << md.architecture << '\n'
+                << "context_length=" << md.context_length << '\n'
+                << "blocks=" << md.block_count << '\n'
+                << "embedding_length=" << md.embedding_length << '\n'
+                << "feed_forward_length=" << md.feed_forward_length << '\n'
+                << "attention_heads=" << md.attention_heads << '\n'
+                << "attention_kv_heads=" << md.attention_kv_heads << '\n'
+                << "vocab_size=" << md.vocab_size << '\n';
+      if (const auto* gguf = model.gguf_file()) {
+        std::cout << gguf->summary() << '\n';
+        std::size_t shown = 0;
+        for (const auto& t : gguf->tensors()) {
+          if (shown++ >= 12) break;
+          std::cout << "tensor " << t.name << " type=" << t.ggml_type << " bytes=" << t.bytes << " shape=";
+          for (auto d : t.shape) std::cout << d << 'x';
+          std::cout << '\n';
+        }
+      }
+      return 0;
+    }
     cpullm::Engine engine(std::move(model));
     if (opt.stream) {
       std::cout << opt.prompt;

@@ -41,10 +41,29 @@ Model Model::load(std::string_view path) {
   if (ends_with(path, ".gguf")) {
     Model model;
     model.metadata_.format = ModelFormat::gguf_probe;
-    model.metadata_.name = std::string{path};
-    model.metadata_.gguf = probe_gguf(path);
-    if (!model.metadata_.gguf.valid) throw std::runtime_error("invalid or unsupported GGUF file");
-    model.metadata_.parameters = static_cast<std::size_t>(model.metadata_.gguf.tensor_count);
+    model.gguf_file_ = std::make_unique<GgufFile>(GgufFile::open(path));
+    model.metadata_.gguf = {.valid = model.gguf_file_->valid(),
+                            .version = model.gguf_file_->version(),
+                            .tensor_count = model.gguf_file_->tensor_count(),
+                            .metadata_count = model.gguf_file_->metadata_count()};
+    model.metadata_.name = model.gguf_file_->metadata_value("general.name").value_or(std::string{path});
+    model.metadata_.architecture = model.gguf_file_->metadata_value("general.architecture").value_or("unknown");
+    auto parse_u32 = [&](const char* key) -> std::uint32_t {
+      auto v = model.gguf_file_->metadata_value(key);
+      if (!v) return 0u;
+      const auto first = v->find_first_of("0123456789");
+      if (first == std::string::npos) return 0u;
+      const auto last = v->find_first_not_of("0123456789", first);
+      return static_cast<std::uint32_t>(std::stoul(v->substr(first, last - first)));
+    };
+    model.metadata_.block_count = parse_u32("lfm2.block_count");
+    model.metadata_.context_length = parse_u32("lfm2.context_length");
+    model.metadata_.embedding_length = parse_u32("lfm2.embedding_length");
+    model.metadata_.feed_forward_length = parse_u32("lfm2.feed_forward_length");
+    model.metadata_.attention_heads = parse_u32("lfm2.attention.head_count");
+    model.metadata_.attention_kv_heads = parse_u32("lfm2.attention.head_count_kv");
+    model.metadata_.vocab_size = parse_u32("lfm2.vocab_size");
+    model.metadata_.parameters = static_cast<std::size_t>(model.gguf_file_->tensor_count());
     return model;
   }
   return load_manifest(path);
@@ -53,5 +72,6 @@ Model Model::load(std::string_view path) {
 const ModelMetadata& Model::metadata() const noexcept { return metadata_; }
 const TensorStore& Model::tensors() const noexcept { return tensors_; }
 TensorStore& Model::tensors() noexcept { return tensors_; }
+const GgufFile* Model::gguf_file() const noexcept { return gguf_file_.get(); }
 
 } // namespace cpullm

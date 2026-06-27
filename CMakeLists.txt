@@ -46,6 +46,9 @@ target_link_libraries(llama-cli PRIVATE cpullm)
 add_executable(cpullm-bench benchmarks/bench_core.cpp)
 target_link_libraries(cpullm-bench PRIVATE cpullm)
 
+add_executable(cpullm-gguf-q4-bench benchmarks/bench_gguf_q4.cpp)
+target_link_libraries(cpullm-gguf-q4-bench PRIVATE cpullm)
+
 if(CPULLM_BUILD_EXAMPLES)
   add_executable(cpullm-minimal examples/minimal.cpp)
   target_link_libraries(cpullm-minimal PRIVATE cpullm)

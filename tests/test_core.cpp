@@ -2,6 +2,7 @@
 
 #include <cassert>
 #include <cmath>
+#include <fstream>
 #include <iostream>
 
 int main() {
@@ -38,6 +39,21 @@ int main() {
   assert(cache.capacity_tokens() == 4);
   assert(cache.bytes() == 2 * 4 * 1 * 8 * 2 * sizeof(float));
   assert(cache.append_slot());
+
+  {
+    std::ofstream f("/tmp/cpullm_min.gguf", std::ios::binary);
+    const char magic[] = {'G','G','U','F'};
+    const std::uint32_t version = 3;
+    const std::uint64_t tensors = 0;
+    const std::uint64_t metadata = 0;
+    f.write(magic, 4);
+    f.write(reinterpret_cast<const char*>(&version), sizeof(version));
+    f.write(reinterpret_cast<const char*>(&tensors), sizeof(tensors));
+    f.write(reinterpret_cast<const char*>(&metadata), sizeof(metadata));
+  }
+  auto gguf = cpullm::GgufFile::open("/tmp/cpullm_min.gguf");
+  assert(gguf.valid());
+  assert(gguf.version() == 3);
 
   cpullm::Model model = cpullm::Model::load_manifest("examples/toy-model.yml");
   cpullm::InferenceSession session(model, {.max_tokens = 3, .temperature = 0.0f});
