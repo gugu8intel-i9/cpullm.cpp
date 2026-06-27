@@ -1,9 +1,16 @@
 #include "cpullm/cpullm.hpp"
 
 #include <sstream>
+#include <stdexcept>
 #include <unordered_map>
 
 namespace cpullm {
+
+Tokenizer Tokenizer::from_gguf(const GgufFile& gguf) {
+  auto toks = gguf.tokenizer_tokens();
+  if (toks.empty()) throw std::runtime_error("GGUF tokenizer.ggml.tokens not found");
+  return Tokenizer(std::vector<std::string>(toks.begin(), toks.end()));
+}
 
 Tokenizer::Tokenizer(std::vector<std::string> vocab) : vocab_(std::move(vocab)) {
   if (vocab_.empty()) vocab_ = {"<unk>", "<bos>", "<eos>"};

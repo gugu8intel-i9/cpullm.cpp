@@ -23,6 +23,7 @@ add_library(cpullm
   src/matmul.cpp
   src/model.cpp
   src/mtp.cpp
+  src/ops.cpp
   src/tokenizer.cpp
 )
 
@@ -60,4 +61,8 @@ if(CPULLM_BUILD_TESTS)
   add_executable(cpullm-tests tests/test_core.cpp)
   target_link_libraries(cpullm-tests PRIVATE cpullm)
   add_test(NAME cpullm-core COMMAND cpullm-tests)
+
+  add_executable(cpullm-ops-tests tests/test_ops.cpp)
+  target_link_libraries(cpullm-ops-tests PRIVATE cpullm)
+  add_test(NAME cpullm-ops COMMAND cpullm-ops-tests)
 endif()

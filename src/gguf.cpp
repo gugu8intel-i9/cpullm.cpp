@@ -61,6 +61,13 @@ struct Cursor {
 
 std::string scalar_to_string(Cursor& c, MetaType t);
 
+std::vector<std::string> read_string_array(Cursor& c, std::uint64_t count) {
+  std::vector<std::string> out;
+  out.reserve(static_cast<std::size_t>(std::min<std::uint64_t>(count, 1000000)));
+  for (std::uint64_t i = 0; i < count; ++i) out.push_back(c.read_string());
+  return out;
+}
+
 std::string array_to_string(Cursor& c) {
   const auto elem_type = static_cast<MetaType>(c.read<std::uint32_t>());
   const auto count = c.read<std::uint64_t>();
@@ -153,6 +160,7 @@ struct GgufFile::Impl {
   std::uint64_t data_start = 0;
   std::vector<GgufTensorInfo> tensors;
   std::vector<GgufMetadataEntry> metadata;
+  std::vector<std::string> tokenizer_tokens;
 
   ~Impl() {
 #if defined(_WIN32)
@@ -207,7 +215,18 @@ GgufFile GgufFile::open(std::string_view path_sv) {
   for (std::uint64_t i = 0; i < impl->metadata_count; ++i) {
     auto key = c.read_string();
     const auto type = static_cast<MetaType>(c.read<std::uint32_t>());
-    auto value = scalar_to_string(c, type);
+    std::string value;
+    if (key == "tokenizer.ggml.tokens" && type == MetaType::array) {
+      const auto elem_type = static_cast<MetaType>(c.read<std::uint32_t>());
+      const auto count = c.read<std::uint64_t>();
+      if (elem_type != MetaType::string) throw std::runtime_error("tokenizer.ggml.tokens is not a string array");
+      impl->tokenizer_tokens = read_string_array(c, count);
+      std::ostringstream v;
+      v << "[" << impl->tokenizer_tokens.size() << " tokenizer tokens]";
+      value = v.str();
+    } else {
+      value = scalar_to_string(c, type);
+    }
     if (key == "general.alignment") impl->alignment = static_cast<std::uint32_t>(std::stoul(value));
     impl->metadata.push_back({std::move(key), std::move(value)});
   }
@@ -252,6 +271,10 @@ std::optional<std::string> GgufFile::metadata_value(std::string_view key) const 
   if (!impl_) return std::nullopt;
   for (const auto& e : impl_->metadata) if (e.key == key) return e.value;
   return std::nullopt;
+}
+
+std::span<const std::string> GgufFile::tokenizer_tokens() const noexcept {
+  return impl_ ? std::span<const std::string>(impl_->tokenizer_tokens) : std::span<const std::string>();
 }
 
 const GgufTensorInfo* GgufFile::find_tensor(std::string_view name) const noexcept {

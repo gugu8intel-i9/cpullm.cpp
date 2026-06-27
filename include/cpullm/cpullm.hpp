@@ -12,6 +12,8 @@
 
 namespace cpullm {
 
+class GgufFile;
+
 struct CpuFeatures {
   bool sse2 = false;
   bool avx2 = false;
@@ -97,6 +99,7 @@ private:
 class Tokenizer {
 public:
   explicit Tokenizer(std::vector<std::string> vocab = {});
+  static Tokenizer from_gguf(const GgufFile& gguf);
   std::vector<std::uint32_t> encode(std::string_view text) const;
   std::string decode(std::span<const std::uint32_t> ids) const;
   std::size_t vocab_size() const noexcept;
@@ -147,6 +150,7 @@ public:
   std::span<const GgufTensorInfo> tensors() const noexcept;
   std::span<const GgufMetadataEntry> metadata() const noexcept;
   std::optional<std::string> metadata_value(std::string_view key) const;
+  std::span<const std::string> tokenizer_tokens() const noexcept;
   const GgufTensorInfo* find_tensor(std::string_view name) const noexcept;
   std::span<const std::byte> tensor_bytes(const GgufTensorInfo& tensor) const;
   std::string summary() const;

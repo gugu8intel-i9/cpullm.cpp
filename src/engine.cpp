@@ -1,4 +1,5 @@
 #include "cpullm/cpullm.hpp"
+#include "cpullm/ops.hpp"
 
 #include <sstream>
 
@@ -7,6 +8,10 @@ namespace cpullm {
 Engine::Engine(Model model) : model_(std::move(model)) {}
 
 std::string Engine::generate(std::string_view prompt, const GenerationConfig& config) {
+  if (model_.metadata().format == ModelFormat::gguf_probe) {
+    auto decoded = greedy_decode_real(model_, prompt, config);
+    return decoded.text;
+  }
   InferenceSession session(model_, config);
   std::ostringstream out;
   out << session.generate(prompt);
@@ -26,6 +31,13 @@ std::string Engine::generate(std::string_view prompt, const GenerationConfig& co
 }
 
 void Engine::generate_stream(std::string_view prompt, const GenerationConfig& config, const TokenCallback& callback) {
+  if (model_.metadata().format == ModelFormat::gguf_probe) {
+    auto decoded = greedy_decode_real(model_, prompt, config);
+    for (std::size_t i = 0; i < decoded.tokens.size(); ++i) {
+      if (callback && !callback({decoded.tokens[i], i < decoded.text.size() ? std::string(1, decoded.text[i]) : std::string{}, i})) break;
+    }
+    return;
+  }
   InferenceSession session(model_, config);
   session.generate_stream(prompt, callback);
 }
