@@ -91,6 +91,10 @@ See [docs/llama_compatibility.md](docs/llama_compatibility.md), [docs/mtp.md](do
 
 Today, cpullm.cpp accepts common llama.cpp-style CLI invocations for YAML manifests, can memory-map GGUF metadata/tensor directories, and exposes MTP and classic draft-model speculative flags that gracefully fall back to normal decoding unless real verified speculative execution is possible; `--spec-strict` restores fail-fast behavior. Full LFM2.5 transformer operator execution is the next major milestone; the benchmark report now records llama.cpp as the real CPU baseline cpullm must beat.
 
+## Latest LFM2.5 comparison
+
+After the real-operator/no-mock upgrade, llama.cpp `b9821` runs `LFM2.5-230M-Q4_0.gguf` on the 2-vCPU AVX-512 sandbox at **519.19 ± 1.48 pp512 tokens/sec** and **85.78 ± 0.88 tg128 tokens/sec**. cpullm.cpp now loads/inspects the GGUF, loads tokenizer token arrays, runs real operator tests, and benchmarks a mapped GGUF Q4_0 tensor at **311.122 matvec/sec** for `blk.0.ffn_gate.weight`, but it correctly refuses full LFM2.5 decode because the `lfm2` graph is not wired yet. See [docs/benchmarks/lfm25_230m_q4_cpu_after_real_ops.md](docs/benchmarks/lfm25_230m_q4_cpu_after_real_ops.md).
+
 ## Benchmarks
 
 The first real baseline report is available at [docs/benchmarks/lfm25_230m_q4_cpu.md](docs/benchmarks/lfm25_230m_q4_cpu.md). On the 2-vCPU AVX-512 sandbox, llama.cpp `b9821` runs `LFM2.5-230M-Q4_0.gguf` at **547.11 ± 2.01 pp512 tokens/sec** and **87.54 ± 0.72 tg128 tokens/sec** on CPU. cpullm.cpp is not fairly comparable yet because it can load mapped GGUF metadata/tensors but does not yet execute the full LFM2.5 transformer graph.
