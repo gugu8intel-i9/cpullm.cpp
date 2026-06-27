@@ -26,7 +26,7 @@ Speculative decoding requires two real executors:
 1. a target/verifier model
 2. a smaller draft model
 
-If the user requests speculative decoding before cpullm has a real verifier/draft executor wired for the loaded architecture, cpullm exits with an error. It does not silently generate synthetic tokens and call them speculative.
+If the user requests speculative decoding before cpullm has a real verifier/draft executor wired for the loaded architecture, cpullm falls back to normal decoding by default and reports `spec_active=false` with a fallback reason. With `--spec-strict`, cpullm exits with an error. It never silently calls normal decoding speculative.
 
 ## Implemented core
 

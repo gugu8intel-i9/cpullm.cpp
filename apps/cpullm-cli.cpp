@@ -37,9 +37,10 @@ void print_help(const char* argv0) {
       << "  --version                show version\n"
       << "  --stream                 stream tokens as they are produced\n"
       << "  --inspect                print model/GGUF metadata and exit\n"
-      << "  --spec-type <off|mtp|draft> speculative mode; real/fail-fast only\n"
+      << "  --spec-type <off|mtp|draft> speculative mode; fallback by default\n"
       << "  --spec-draft-n-max <n>   maximum draft tokens per verifier step\n"
-      << "  --draft-model <path>     draft model for classic speculative decoding\n\n"
+      << "  --draft-model <path>     draft model for classic speculative decoding\n"
+      << "  --spec-strict           fail instead of falling back when speculation is unavailable\n\n"
       << "status:\n"
       << "  This foundation accepts llama.cpp-style invocations, but full GGUF\n"
       << "  inference compatibility is still on the roadmap. YAML manifests work now.\n";
@@ -63,6 +64,7 @@ std::optional<CliOptions> parse_args(int argc, char** argv) {
     else if (arg == "--version") opt.show_version = true;
     else if (arg == "--stream") opt.stream = true;
     else if (arg == "--inspect") opt.inspect = true;
+    else if (arg == "--spec-strict") opt.generation.speculative.strict = true;
     else if (arg == "--spec-type") {
       auto value = require_value(i, argc, argv, arg);
       if (!value) return std::nullopt;
@@ -176,6 +178,7 @@ int main(int argc, char** argv) {
               << " threads=" << (opt.threads == 0 ? std::string{"auto"} : std::to_string(opt.threads))
               << " spec=" << (opt.generation.speculative.mode == cpullm::SpeculativeMode::mtp ? "mtp" : (opt.generation.speculative.mode == cpullm::SpeculativeMode::draft_model ? "draft" : "off"))
               << " draft_n_max=" << opt.generation.speculative.draft_n_max
+              << " strict=" << (opt.generation.speculative.strict ? "true" : "false")
               << '\n';
     return 0;
   } catch (const std::exception& e) {

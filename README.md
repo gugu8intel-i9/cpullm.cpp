@@ -2,11 +2,11 @@
 
 A high-performance, lightweight, CPU-first LLM runtime foundation designed to become a drop-in alternative to llama.cpp.
 
-> Status: active inference-engine foundation. The project now includes llama.cpp-style CLI entry points, common llama.cpp flag parsing including warning-clean real fail-fast MTP and speculative-decoding options, a minimal llama-compatible C ABI scaffold, streaming generation APIs, session/KV-cache management, sampler stack, internal q4_0 primitives, GGUF-native 18-byte q4_0 mapped matvec, hardened memory-mapped GGUF metadata/tensor-directory loading, tensor storage, mapped-weight benchmark scaffolding with finite deterministic inputs, warning-clean CPU feature detection, arena allocation, tokenizer scaffolding, model manifest loading, tests, and architecture notes.
+> Status: active inference-engine foundation. The project now includes llama.cpp-style CLI entry points, common llama.cpp flag parsing including warning-clean MTP/speculative options with graceful fallback by default and strict mode, a minimal llama-compatible C ABI scaffold, streaming generation APIs, session/KV-cache management, sampler stack, internal q4_0 primitives, GGUF-native 18-byte q4_0 mapped matvec, hardened memory-mapped GGUF metadata/tensor-directory loading, tensor storage, mapped-weight benchmark scaffolding with finite deterministic inputs, warning-clean CPU feature detection, arena allocation, tokenizer scaffolding, model manifest loading, tests, and architecture notes.
 
 ## Goals
 
-- **Drop-in llama.cpp ergonomics:** build a `llama-cli` target and accept common flags like `-m`, `-p`, `-n`, `--temp`, `-c`, `-t`, `--stream`, `--spec-type mtp`, `--spec-type draft`, `--draft-model`, and `--spec-draft-n-max`.
+- **Drop-in llama.cpp ergonomics:** build a `llama-cli` target and accept common flags like `-m`, `-p`, `-n`, `--temp`, `-c`, `-t`, `--stream`, `--spec-type mtp`, `--spec-type draft`, `--draft-model`, `--spec-draft-n-max`, and `--spec-strict`.
 - **Lightweight:** small C++20 core, no required third-party dependencies.
 - **Fast by design:** scratch arenas, zero-copy memory-mapped GGUF tensor access, real MTP/speculative accept/reject core, q4_0 primitives, cache-aware kernels, runtime CPU feature dispatch, and a path toward fused graph execution.
 - **Novel architecture:** clean separation between model format probing, tensor storage, session state, sampling, KV cache, and kernels.
@@ -84,9 +84,9 @@ Benchmark:
 
 ## llama.cpp compatibility
 
-See [docs/llama_compatibility.md](docs/llama_compatibility.md), [docs/mtp.md](docs/mtp.md), and [docs/speculative_decoding.md](docs/speculative_decoding.md).
+See [docs/llama_compatibility.md](docs/llama_compatibility.md), [docs/mtp.md](docs/mtp.md), [docs/speculative_decoding.md](docs/speculative_decoding.md), and [docs/speculative_fallback.md](docs/speculative_fallback.md).
 
-Today, cpullm.cpp accepts common llama.cpp-style CLI invocations for YAML manifests, can memory-map GGUF metadata/tensor directories, and exposes MTP and classic draft-model speculative flags that fail fast unless real verified speculative execution is possible. Full LFM2.5 transformer operator execution is the next major milestone; the benchmark report now records llama.cpp as the real CPU baseline cpullm must beat.
+Today, cpullm.cpp accepts common llama.cpp-style CLI invocations for YAML manifests, can memory-map GGUF metadata/tensor directories, and exposes MTP and classic draft-model speculative flags that gracefully fall back to normal decoding unless real verified speculative execution is possible; `--spec-strict` restores fail-fast behavior. Full LFM2.5 transformer operator execution is the next major milestone; the benchmark report now records llama.cpp as the real CPU baseline cpullm must beat.
 
 ## Benchmarks
 
@@ -102,7 +102,7 @@ python3 scripts/benchmark_lfm25_230m_q4_cpu.py --threads 2
 
 See [docs/inference_engine.md](docs/inference_engine.md) and [docs/gguf_loader.md](docs/gguf_loader.md).
 
-The engine is now structured around reusable sessions, explicit KV cache, quantized kernels, deterministic sampling, streaming callbacks, and zero-copy mapped GGUF tensor access. LFM2.5 metadata and Q4_0 tensors can be loaded and benchmarked directly from GGUF; generated text is still synthetic until the transformer operators are connected.
+The engine is now structured around reusable sessions, explicit KV cache, quantized kernels, deterministic sampling, streaming callbacks, speculative fallback reporting, and zero-copy mapped GGUF tensor access. LFM2.5 metadata and Q4_0 tensors can be loaded and benchmarked directly from GGUF; generated text is still synthetic until the transformer operators are connected.
 
 ## Roadmap
 

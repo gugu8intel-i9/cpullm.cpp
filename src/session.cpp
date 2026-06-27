@@ -24,19 +24,40 @@ bool KVCache::append_slot() noexcept {
   return true;
 }
 
+static void apply_fallback(SpeculativeRuntimeState& state, const GenerationConfig& config, std::string reason) {
+  state.active = false;
+  state.fallback_reason = std::move(reason);
+  if (config.speculative.strict) throw std::runtime_error(state.fallback_reason);
+}
+
 InferenceSession::InferenceSession(const Model& model, GenerationConfig config)
-    : model_(model), config_(config), kv_cache_(2, std::max<std::size_t>(model.metadata().context_length, 128), 1, 64) {
+    : model_(model), config_(std::move(config)), kv_cache_(2, std::max<std::size_t>(model.metadata().context_length, 128), 1, 64) {
+  speculative_state_.requested = config_.speculative.mode;
+  if (config_.speculative.mode == SpeculativeMode::off) return;
+
   if (config_.speculative.mode == SpeculativeMode::mtp) {
-    if (config_.speculative.draft_n_max == 0) throw std::invalid_argument("--spec-draft-n-max must be > 0 for MTP");
-    if (!model_.metadata().mtp.present) {
-      throw std::runtime_error("MTP requested, but this GGUF does not expose MTP/draft-head metadata or tensors");
+    if (config_.speculative.draft_n_max == 0) {
+      apply_fallback(speculative_state_, config_, "MTP requested without --spec-draft-n-max; using normal decoding");
+      return;
     }
-    throw std::runtime_error("MTP requested and MTP heads were detected, but cpullm has no full verifier/drafter executor wired yet; refusing to mock MTP");
+    if (!model_.metadata().mtp.present) {
+      apply_fallback(speculative_state_, config_, "MTP requested, but this model has no MTP/draft heads; using normal decoding");
+      return;
+    }
+    apply_fallback(speculative_state_, config_, "MTP heads detected, but verifier/drafter executor is not wired yet; using normal decoding");
+    return;
   }
+
   if (config_.speculative.mode == SpeculativeMode::draft_model) {
-    if (config_.speculative.draft_n_max == 0) throw std::invalid_argument("--spec-draft-n-max must be > 0 for speculative decoding");
-    if (config_.speculative.draft_model_path.empty()) throw std::invalid_argument("speculative decoding requires --draft-model");
-    throw std::runtime_error("speculative decoding requested with a draft model, but cpullm has no full target/draft verifier executor wired yet; refusing to mock speculative decoding");
+    if (config_.speculative.draft_n_max == 0) {
+      apply_fallback(speculative_state_, config_, "speculative decoding requested without --spec-draft-n-max; using normal decoding");
+      return;
+    }
+    if (config_.speculative.draft_model_path.empty()) {
+      apply_fallback(speculative_state_, config_, "speculative decoding requested without --draft-model; using normal decoding");
+      return;
+    }
+    apply_fallback(speculative_state_, config_, "draft model configured, but target/draft verifier executor is not wired yet; using normal decoding");
   }
 }
 
@@ -72,5 +93,6 @@ void InferenceSession::generate_stream(std::string_view prompt, const TokenCallb
 }
 
 const KVCache& InferenceSession::kv_cache() const noexcept { return kv_cache_; }
+const SpeculativeRuntimeState& InferenceSession::speculative_state() const noexcept { return speculative_state_; }
 
 } // namespace cpullm

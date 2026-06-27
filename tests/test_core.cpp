@@ -114,6 +114,37 @@ int main() {
     assert(ctx.back() == 9);
   }
 
+
+  {
+    cpullm::GenerationConfig fallback_cfg;
+    fallback_cfg.max_tokens = 2;
+    fallback_cfg.temperature = 0.0f;
+    fallback_cfg.speculative.mode = cpullm::SpeculativeMode::mtp;
+    fallback_cfg.speculative.draft_n_max = 3;
+    cpullm::InferenceSession fallback_session(model, fallback_cfg);
+    assert(!fallback_session.speculative_state().active);
+    assert(!fallback_session.speculative_state().fallback_reason.empty());
+    std::size_t fallback_streamed = 0;
+    fallback_session.generate_stream("hello", [&](const cpullm::TokenEvent&) { ++fallback_streamed; return true; });
+    assert(fallback_streamed == 2);
+  }
+
+  {
+    cpullm::GenerationConfig strict_cfg;
+    strict_cfg.speculative.mode = cpullm::SpeculativeMode::draft_model;
+    strict_cfg.speculative.draft_n_max = 2;
+    strict_cfg.speculative.draft_model_path = "examples/toy-model.yml";
+    strict_cfg.speculative.strict = true;
+    bool threw = false;
+    try {
+      cpullm::InferenceSession strict_session(model, strict_cfg);
+      (void) strict_session;
+    } catch (const std::runtime_error&) {
+      threw = true;
+    }
+    assert(threw);
+  }
+
   cpullm::Graph g;
   assert(g.add_node("matmul") == 0);
   assert(g.size() == 1);

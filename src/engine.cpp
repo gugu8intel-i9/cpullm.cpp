@@ -18,6 +18,8 @@ std::string Engine::generate(std::string_view prompt, const GenerationConfig& co
       << ", top_p=" << config.top_p
       << ", spec=" << (config.speculative.mode == SpeculativeMode::mtp ? "mtp" : (config.speculative.mode == SpeculativeMode::draft_model ? "draft" : "off"))
       << ", draft_n_max=" << config.speculative.draft_n_max
+      << ", spec_active=" << (session.speculative_state().active ? "true" : "false")
+      << ", spec_fallback=\"" << session.speculative_state().fallback_reason << "\""
       << ", kv_bytes=" << session.kv_cache().bytes()
       << "]";
   return out.str();

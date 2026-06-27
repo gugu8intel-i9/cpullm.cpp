@@ -201,6 +201,13 @@ struct SpeculativeConfig {
   SpeculativeMode mode = SpeculativeMode::off;
   std::size_t draft_n_max = 0;
   std::string draft_model_path;
+  bool strict = false;
+};
+
+struct SpeculativeRuntimeState {
+  SpeculativeMode requested = SpeculativeMode::off;
+  bool active = false;
+  std::string fallback_reason;
 };
 
 using MtpConfig = SpeculativeConfig;
@@ -278,12 +285,14 @@ public:
   std::string generate(std::string_view prompt);
   void generate_stream(std::string_view prompt, const TokenCallback& callback);
   const KVCache& kv_cache() const noexcept;
+  const SpeculativeRuntimeState& speculative_state() const noexcept;
 
 private:
   const Model& model_;
   GenerationConfig config_;
   Tokenizer tokenizer_;
   KVCache kv_cache_;
+  SpeculativeRuntimeState speculative_state_;
 };
 
 class Engine {
