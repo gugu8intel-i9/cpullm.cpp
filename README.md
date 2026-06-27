@@ -81,7 +81,17 @@ Benchmark:
 
 See [docs/llama_compatibility.md](docs/llama_compatibility.md).
 
-Today, cpullm.cpp accepts common llama.cpp-style CLI invocations for YAML manifests and can probe GGUF headers. Full GGUF tensor loading and transformer execution are the next major milestones.
+Today, cpullm.cpp accepts common llama.cpp-style CLI invocations for YAML manifests and can probe GGUF headers. Full GGUF tensor loading and transformer execution are the next major milestones; the benchmark report now records llama.cpp as the real CPU baseline cpullm must beat.
+
+## Benchmarks
+
+The first real baseline report is available at [docs/benchmarks/lfm25_230m_q4_cpu.md](docs/benchmarks/lfm25_230m_q4_cpu.md). On the 2-vCPU AVX-512 sandbox, llama.cpp `b9821` runs `LFM2.5-230M-Q4_0.gguf` at **547.11 ± 2.01 pp512 tokens/sec** and **87.54 ± 0.72 tg128 tokens/sec** on CPU. cpullm.cpp is not fairly comparable yet because it can probe GGUF but does not yet execute real GGUF transformer inference.
+
+Reproduce with:
+
+```bash
+python3 scripts/benchmark_lfm25_230m_q4_cpu.py --threads 2
+```
 
 ## Inference engine
 
