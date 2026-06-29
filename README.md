@@ -2,11 +2,11 @@
 
 A high-performance, lightweight, CPU-first LLM runtime foundation designed to become a drop-in alternative to llama.cpp.
 
-> Status: active inference-engine foundation. The project now includes llama.cpp-style CLI entry points, common llama.cpp flag parsing including warning-clean MTP/speculative options with graceful fallback by default and strict mode, a minimal llama-compatible C ABI scaffold, streaming generation APIs, session/KV-cache management, sampler stack, real RMSNorm/RoPE/attention/short-convolution/SwiGLU/logits operators, GGUF tokenizer loading, real decode fail-fast boundary, internal q4_0 primitives, GGUF-native 18-byte q4_0 mapped matvec, hardened memory-mapped GGUF metadata/tensor-directory loading, tensor storage, mapped-weight benchmark scaffolding with finite deterministic inputs, warning-clean CPU feature detection, arena allocation, tokenizer scaffolding, model manifest loading, tests, and architecture notes.
+> Status: active inference-engine foundation. The project now includes llama.cpp-style CLI entry points, common llama.cpp flag parsing plus production-readiness validation including warning-clean MTP/speculative options with graceful fallback by default and strict mode, a minimal llama-compatible C ABI scaffold, streaming generation APIs, session/KV-cache management, sampler stack, real RMSNorm/RoPE/attention/short-convolution/SwiGLU/logits operators, GGUF tokenizer loading, real decode fail-fast boundary, internal q4_0 primitives, GGUF-native 18-byte q4_0 mapped matvec, hardened memory-mapped GGUF metadata/tensor-directory loading, tensor storage, mapped-weight benchmark scaffolding with finite deterministic inputs, warning-clean CPU feature detection, arena allocation, tokenizer scaffolding, model manifest loading, tests, and architecture notes.
 
 ## Goals
 
-- **Drop-in llama.cpp ergonomics:** build a `llama-cli` target and accept common flags like `-m`, `-p`, `-n`, `--temp`, `-c`, `-t`, `--stream`, `--spec-type mtp`, `--spec-type draft`, `--draft-model`, `--spec-draft-n-max`, and `--spec-strict`.
+- **Drop-in llama.cpp ergonomics:** build a `llama-cli` target and accept common flags like `-m`, `-p`, `-n`, `--temp`, `-c`, `-t`, `--stream`, `--check`, `--dump-plan`, `--spec-type mtp`, `--spec-type draft`, `--draft-model`, `--spec-draft-n-max`, and `--spec-strict`.
 - **Lightweight:** small C++20 core, no required third-party dependencies.
 - **Fast by design:** scratch arenas, zero-copy memory-mapped GGUF tensor access, real operator primitives, real MTP/speculative accept/reject core, q4_0 primitives, cache-aware kernels, runtime CPU feature dispatch, and a path toward fused graph execution.
 - **Novel architecture:** clean separation between model format probing, tensor storage, session state, sampling, KV cache, and kernels.
@@ -55,6 +55,14 @@ llama.cpp-style name:
 ./build/llama-cli -m examples/toy-model.yml -p "Hello from cpullm" -n 32 --temp 0.8 -c 2048 -t 0 --stream
 ```
 
+
+Production readiness check:
+
+```bash
+./build/cpullm-cli -m model.gguf --check
+./build/cpullm-cli -m model.gguf --dump-plan
+```
+
 Benchmark:
 
 ```bash
@@ -78,6 +86,7 @@ Benchmark:
 - `cpullm::rms_norm`, `rope_inplace`, `causal_attention`, `short_convolution_1d`, `swiglu_mlp`, and `logits_projection` — real lightweight decoder operator primitives.
 - `cpullm::Tokenizer::from_gguf()` — loads tokenizer token arrays from GGUF metadata.
 - `cpullm::greedy_decode_real()` — real decode boundary that refuses unsupported GGUF architectures instead of mocking output.
+- `cpullm::build_execution_plan()` — production-readiness planner for GGUF compatibility, kernel coverage, tensor requirements, and architecture blockers.
 - `cpullm::GgufFile` — zero-copy memory-mapped GGUF metadata and tensor-directory loader with tensor byte views and robust numeric metadata extraction for LFM2/LFM2.5.
 - `cpullm::probe_gguf()` — lightweight GGUF validation and metadata counts.
 - `cpullm::Tokenizer` — minimal whitespace tokenizer placeholder for API development.
@@ -107,7 +116,7 @@ python3 scripts/benchmark_lfm25_230m_q4_cpu.py --threads 2
 
 ## Inference engine
 
-See [docs/inference_engine.md](docs/inference_engine.md), [docs/gguf_loader.md](docs/gguf_loader.md), and [docs/real_executor.md](docs/real_executor.md).
+See [docs/inference_engine.md](docs/inference_engine.md), [docs/gguf_loader.md](docs/gguf_loader.md), [docs/real_executor.md](docs/real_executor.md), and [docs/production_readiness.md](docs/production_readiness.md).
 
 The engine is now structured around reusable sessions, explicit KV cache, quantized kernels, deterministic sampling, streaming callbacks, speculative fallback reporting, and zero-copy mapped GGUF tensor access. LFM2.5 metadata and Q4_0 tensors can be loaded and benchmarked directly from GGUF. GGUF generation now enters a real decode boundary and fails for unsupported architectures instead of producing synthetic text.
 

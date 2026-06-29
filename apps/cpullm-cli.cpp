@@ -1,4 +1,5 @@
 #include "cpullm/cpullm.hpp"
+#include "cpullm/plan.hpp"
 
 #include <exception>
 #include <iostream>
@@ -18,6 +19,8 @@ struct CliOptions {
   bool show_version = false;
   bool stream = false;
   bool inspect = false;
+  bool check = false;
+  bool dump_plan = false;
 };
 
 void print_help(const char* argv0) {
@@ -37,6 +40,8 @@ void print_help(const char* argv0) {
       << "  --version                show version\n"
       << "  --stream                 stream tokens as they are produced\n"
       << "  --inspect                print model/GGUF metadata and exit\n"
+      << "  --check                  validate production execution readiness and exit\n"
+      << "  --dump-plan              print execution plan JSON and exit\n"
       << "  --spec-type <off|mtp|draft> speculative mode; fallback by default\n"
       << "  --spec-draft-n-max <n>   maximum draft tokens per verifier step\n"
       << "  --draft-model <path>     draft model for classic speculative decoding\n"
@@ -64,6 +69,8 @@ std::optional<CliOptions> parse_args(int argc, char** argv) {
     else if (arg == "--version") opt.show_version = true;
     else if (arg == "--stream") opt.stream = true;
     else if (arg == "--inspect") opt.inspect = true;
+    else if (arg == "--check") opt.check = true;
+    else if (arg == "--dump-plan") opt.dump_plan = true;
     else if (arg == "--spec-strict") opt.generation.speculative.strict = true;
     else if (arg == "--spec-type") {
       auto value = require_value(i, argc, argv, arg);
@@ -136,6 +143,11 @@ int main(int argc, char** argv) {
     }
 
     auto model = cpullm::Model::load(opt.model_path);
+    if (opt.check || opt.dump_plan) {
+      const auto plan = cpullm::build_execution_plan(model);
+      std::cout << (opt.dump_plan ? plan.to_json() : plan.to_text()) << '\n';
+      return plan.runnable() ? 0 : 3;
+    }
     if (opt.inspect) {
       const auto& md = model.metadata();
       std::cout << "name=" << md.name << '\n'
