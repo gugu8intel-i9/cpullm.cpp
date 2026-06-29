@@ -21,6 +21,7 @@ struct CliOptions {
   bool inspect = false;
   bool check = false;
   bool dump_plan = false;
+  bool list_architectures = false;
 };
 
 void print_help(const char* argv0) {
@@ -42,6 +43,7 @@ void print_help(const char* argv0) {
       << "  --inspect                print model/GGUF metadata and exit\n"
       << "  --check                  validate production execution readiness and exit\n"
       << "  --dump-plan              print execution plan JSON and exit\n"
+      << "  --list-architectures     list recognized GGUF architecture profiles and exit\n"
       << "  --spec-type <off|mtp|draft> speculative mode; fallback by default\n"
       << "  --spec-draft-n-max <n>   maximum draft tokens per verifier step\n"
       << "  --draft-model <path>     draft model for classic speculative decoding\n"
@@ -71,6 +73,7 @@ std::optional<CliOptions> parse_args(int argc, char** argv) {
     else if (arg == "--inspect") opt.inspect = true;
     else if (arg == "--check") opt.check = true;
     else if (arg == "--dump-plan") opt.dump_plan = true;
+    else if (arg == "--list-architectures") opt.list_architectures = true;
     else if (arg == "--spec-strict") opt.generation.speculative.strict = true;
     else if (arg == "--spec-type") {
       auto value = require_value(i, argc, argv, arg);
@@ -133,11 +136,21 @@ int main(int argc, char** argv) {
     if (!parsed) return 2;
     const auto& opt = *parsed;
 
+    if (opt.list_architectures) {
+      for (const auto& p : cpullm::architecture_profiles()) {
+        std::cout << p.name << " family=" << p.family
+                  << " transformer=" << (p.transformer ? "yes" : "no")
+                  << " hybrid=" << (p.hybrid ? "yes" : "no")
+                  << " moe=" << (p.moe ? "yes" : "no") << '\n';
+      }
+      return 0;
+    }
+
     if (opt.show_version) {
       std::cout << "cpullm.cpp 0.1.0 foundation (llama.cpp-compatible CLI scaffold)\n";
       return 0;
     }
-    if (opt.show_help || opt.model_path.empty()) {
+    if (opt.show_help || (opt.model_path.empty() && !opt.list_architectures)) {
       print_help(argv[0]);
       return opt.show_help ? 0 : 2;
     }
