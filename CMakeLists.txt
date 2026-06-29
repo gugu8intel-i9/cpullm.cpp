@@ -15,6 +15,7 @@ add_library(cpullm
   src/engine.cpp
   src/gguf.cpp
   src/quant.cpp
+  src/residency.cpp
   src/sampler.cpp
   src/session.cpp
   src/tensor.cpp
@@ -70,4 +71,8 @@ if(CPULLM_BUILD_TESTS)
   add_executable(cpullm-plan-tests tests/test_plan.cpp)
   target_link_libraries(cpullm-plan-tests PRIVATE cpullm)
   add_test(NAME cpullm-plan COMMAND cpullm-plan-tests)
+
+  add_executable(cpullm-residency-tests tests/test_residency.cpp)
+  target_link_libraries(cpullm-residency-tests PRIVATE cpullm)
+  add_test(NAME cpullm-residency COMMAND cpullm-residency-tests)
 endif()

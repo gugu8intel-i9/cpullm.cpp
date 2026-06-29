@@ -153,6 +153,7 @@ public:
   std::span<const std::string> tokenizer_tokens() const noexcept;
   const GgufTensorInfo* find_tensor(std::string_view name) const noexcept;
   std::span<const std::byte> tensor_bytes(const GgufTensorInfo& tensor) const;
+  std::uint64_t prefetch_tensors(bool touch_pages = false) const;
   std::string summary() const;
 
 private:

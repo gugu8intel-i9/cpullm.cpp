@@ -290,6 +290,32 @@ std::span<const std::byte> GgufFile::tensor_bytes(const GgufTensorInfo& tensor) 
   return {impl_->data + abs, static_cast<std::size_t>(tensor.bytes)};
 }
 
+
+std::uint64_t GgufFile::prefetch_tensors(bool touch_pages) const {
+  if (!impl_) throw std::runtime_error("GGUF file is not open");
+  std::uint64_t total = 0;
+  constexpr std::size_t page = 4096;
+  volatile std::uint8_t sink = 0;
+  for (const auto& t : impl_->tensors) {
+    if (t.bytes == 0) continue;
+    const auto abs = impl_->data_start + t.offset;
+    if (abs > impl_->size || t.bytes > impl_->size - abs) throw std::runtime_error("GGUF tensor out of bounds");
+    const auto* ptr = impl_->data + abs;
+#if !defined(_WIN32)
+    (void)madvise(const_cast<std::byte*>(ptr), static_cast<std::size_t>(t.bytes), MADV_WILLNEED);
+#endif
+    if (touch_pages) {
+      for (std::uint64_t off = 0; off < t.bytes; off += page) {
+        sink ^= static_cast<std::uint8_t>(ptr[off]);
+      }
+      sink ^= static_cast<std::uint8_t>(ptr[t.bytes - 1]);
+    }
+    total += t.bytes;
+  }
+  (void)sink;
+  return total;
+}
+
 std::string GgufFile::summary() const {
   std::ostringstream out;
   out << "GGUF v" << version() << " tensors=" << tensor_count() << " metadata=" << metadata_count()

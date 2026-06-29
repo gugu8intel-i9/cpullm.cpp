@@ -1,5 +1,6 @@
 #include "cpullm/cpullm.hpp"
 #include "cpullm/plan.hpp"
+#include "cpullm/residency.hpp"
 
 #include <exception>
 #include <iostream>
@@ -22,6 +23,7 @@ struct CliOptions {
   bool check = false;
   bool dump_plan = false;
   bool list_architectures = false;
+  cpullm::AccelerationProfile accel = cpullm::AccelerationProfile::off;
 };
 
 void print_help(const char* argv0) {
@@ -44,6 +46,7 @@ void print_help(const char* argv0) {
       << "  --check                  validate production execution readiness and exit\n"
       << "  --dump-plan              print execution plan JSON and exit\n"
       << "  --list-architectures     list recognized GGUF architecture profiles and exit\n"
+      << "  --accel <off|balanced|turbo> universal residency/prefetch acceleration profile\n"
       << "  --spec-type <off|mtp|draft> speculative mode; fallback by default\n"
       << "  --spec-draft-n-max <n>   maximum draft tokens per verifier step\n"
       << "  --draft-model <path>     draft model for classic speculative decoding\n"
@@ -74,6 +77,11 @@ std::optional<CliOptions> parse_args(int argc, char** argv) {
     else if (arg == "--check") opt.check = true;
     else if (arg == "--dump-plan") opt.dump_plan = true;
     else if (arg == "--list-architectures") opt.list_architectures = true;
+    else if (arg == "--accel") {
+      auto value = require_value(i, argc, argv, arg);
+      if (!value) return std::nullopt;
+      opt.accel = cpullm::parse_acceleration_profile(*value);
+    }
     else if (arg == "--spec-strict") opt.generation.speculative.strict = true;
     else if (arg == "--spec-type") {
       auto value = require_value(i, argc, argv, arg);
@@ -156,6 +164,13 @@ int main(int argc, char** argv) {
     }
 
     auto model = cpullm::Model::load(opt.model_path);
+    const auto residency = cpullm::apply_residency_policy(model, cpullm::residency_config_for_profile(opt.accel));
+    if (opt.accel != cpullm::AccelerationProfile::off) {
+      std::cerr << "accel=" << cpullm::acceleration_profile_name(opt.accel)
+                << " residency_bytes=" << residency.bytes_considered
+                << " note=\"" << residency.note << "\"\n";
+    }
+
     if (opt.check || opt.dump_plan) {
       const auto plan = cpullm::build_execution_plan(model);
       std::cout << (opt.dump_plan ? plan.to_json() : plan.to_text()) << '\n';
@@ -204,6 +219,7 @@ int main(int argc, char** argv) {
               << " spec=" << (opt.generation.speculative.mode == cpullm::SpeculativeMode::mtp ? "mtp" : (opt.generation.speculative.mode == cpullm::SpeculativeMode::draft_model ? "draft" : "off"))
               << " draft_n_max=" << opt.generation.speculative.draft_n_max
               << " strict=" << (opt.generation.speculative.strict ? "true" : "false")
+              << " accel=" << cpullm::acceleration_profile_name(opt.accel)
               << '\n';
     return 0;
   } catch (const std::exception& e) {
