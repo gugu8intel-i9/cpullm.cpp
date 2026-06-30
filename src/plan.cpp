@@ -90,15 +90,24 @@ void analyze_kernels(ExecutionPlan& plan, const GgufFile& gguf) {
     switch (t.dtype) {
       case DataType::f32: plan.kernels.f32 = true; break;
       case DataType::f16: plan.kernels.f16 = true; break;
+      case DataType::bf16: plan.kernels.bf16 = true; break;
       case DataType::q4_0: plan.kernels.q4_0 = true; break;
       case DataType::q4_1: plan.kernels.q4_1 = true; break;
       case DataType::q8_0: plan.kernels.q8_0 = true; break;
+      case DataType::q2_k: case DataType::q3_k: case DataType::q4_k: case DataType::q5_k: case DataType::q6_k: case DataType::q8_k:
+        plan.kernels.k_quant = true; break;
+      case DataType::iq2_xxs: case DataType::iq2_xs: case DataType::iq3_xxs: case DataType::iq1_s: case DataType::iq4_nl:
+      case DataType::iq3_s: case DataType::iq2_s: case DataType::iq4_xs: case DataType::iq1_m:
+        plan.kernels.iq_quant = true; break;
+      case DataType::tq1_0: case DataType::tq2_0:
+        plan.kernels.tq_quant = true; break;
       default: plan.kernels.unknown_types = true; break;
     }
   }
-  if (plan.kernels.f16) issue(plan, "kernel.f16.matmul_missing", "GGUF contains F16 tensors but cpullm has no F16 matvec/matmul kernel yet");
-  if (plan.kernels.q4_1) issue(plan, "kernel.q4_1.missing", "GGUF contains Q4_1 tensors but cpullm has no Q4_1 matvec/dequant kernel yet");
-  if (plan.kernels.q8_0) issue(plan, "kernel.q8_0.missing", "GGUF contains Q8_0 tensors but cpullm has no Q8_0 matvec/dequant kernel yet");
+  if (plan.kernels.bf16) issue(plan, "kernel.bf16.matmul_missing", "GGUF contains BF16 tensors but cpullm has no BF16 matvec/matmul kernel yet");
+  if (plan.kernels.k_quant) issue(plan, "kernel.k_quant.pending", "GGUF contains K-quant tensors; sizes are recognized but low-RAM matvec kernels are pending");
+  if (plan.kernels.iq_quant) issue(plan, "kernel.iq_quant.pending", "GGUF contains IQ tensors; sizes are recognized but low-RAM matvec kernels are pending");
+  if (plan.kernels.tq_quant) issue(plan, "kernel.tq_quant.pending", "GGUF contains TQ tensors; sizes are recognized but low-RAM matvec kernels are pending");
   if (plan.kernels.unknown_types) issue(plan, "kernel.unknown_type", "GGUF contains tensor types not mapped to cpullm kernels yet");
 }
 
@@ -217,6 +226,10 @@ std::string ExecutionPlan::to_text() const {
       << ",q4_0:" << (kernels.q4_0 ? "yes" : "no")
       << ",q4_1:" << (kernels.q4_1 ? "yes" : "no")
       << ",q8_0:" << (kernels.q8_0 ? "yes" : "no")
+      << ",k_quant:" << (kernels.k_quant ? "yes" : "no")
+      << ",iq_quant:" << (kernels.iq_quant ? "yes" : "no")
+      << ",tq_quant:" << (kernels.tq_quant ? "yes" : "no")
+      << ",bf16:" << (kernels.bf16 ? "yes" : "no")
       << ",unknown:" << (kernels.unknown_types ? "yes" : "no") << '\n';
   out << "required_ops=";
   for (std::size_t i = 0; i < required_ops.size(); ++i) out << (i ? "," : "") << required_ops[i];
@@ -243,6 +256,10 @@ std::string ExecutionPlan::to_json() const {
       << ", \"q4_0\": " << (kernels.q4_0 ? "true" : "false")
       << ", \"q4_1\": " << (kernels.q4_1 ? "true" : "false")
       << ", \"q8_0\": " << (kernels.q8_0 ? "true" : "false")
+      << ", \"k_quant\": " << (kernels.k_quant ? "true" : "false")
+      << ", \"iq_quant\": " << (kernels.iq_quant ? "true" : "false")
+      << ", \"tq_quant\": " << (kernels.tq_quant ? "true" : "false")
+      << ", \"bf16\": " << (kernels.bf16 ? "true" : "false")
       << ", \"unknown\": " << (kernels.unknown_types ? "true" : "false") << "},\n";
   out << "  \"required_ops\": [";
   for (std::size_t i = 0; i < required_ops.size(); ++i) out << (i ? ", " : "") << "\"" << esc(required_ops[i]) << "\"";

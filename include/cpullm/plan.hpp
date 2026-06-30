@@ -21,6 +21,10 @@ struct KernelCoverage {
   bool q4_0 = false;
   bool q4_1 = false;
   bool q8_0 = false;
+  bool k_quant = false;
+  bool iq_quant = false;
+  bool tq_quant = false;
+  bool bf16 = false;
   bool unknown_types = false;
 };
 

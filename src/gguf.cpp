@@ -113,7 +113,27 @@ DataType ggml_to_dtype(std::uint32_t type) {
     case 1: return DataType::f16;
     case 2: return DataType::q4_0;
     case 3: return DataType::q4_1;
+    case 6: return DataType::q5_0;
+    case 7: return DataType::q5_1;
     case 8: return DataType::q8_0;
+    case 10: return DataType::q2_k;
+    case 11: return DataType::q3_k;
+    case 12: return DataType::q4_k;
+    case 13: return DataType::q5_k;
+    case 14: return DataType::q6_k;
+    case 15: return DataType::q8_k;
+    case 16: return DataType::iq2_xxs;
+    case 17: return DataType::iq2_xs;
+    case 18: return DataType::iq3_xxs;
+    case 19: return DataType::iq1_s;
+    case 20: return DataType::iq4_nl;
+    case 21: return DataType::iq3_s;
+    case 22: return DataType::iq2_s;
+    case 23: return DataType::iq4_xs;
+    case 24: return DataType::iq1_m;
+    case 25: return DataType::bf16;
+    case 26: return DataType::tq1_0;
+    case 27: return DataType::tq2_0;
     default: return DataType::unknown;
   }
 }
@@ -130,12 +150,34 @@ std::uint64_t element_count(const std::vector<std::uint64_t>& shape) {
 
 std::uint64_t tensor_nbytes(DataType dtype, const std::vector<std::uint64_t>& shape) {
   const auto n = element_count(shape);
+  const auto blocks32 = (n + 31) / 32;
+  const auto blocks256 = (n + 255) / 256;
   switch (dtype) {
     case DataType::f32: return n * 4;
     case DataType::f16: return n * 2;
-    case DataType::q4_0: return ((n + 31) / 32) * 18;
-    case DataType::q4_1: return ((n + 31) / 32) * (sizeof(float) * 2 + 16);
-    case DataType::q8_0: return ((n + 31) / 32) * (sizeof(float) + 32);
+    case DataType::bf16: return n * 2;
+    case DataType::q4_0: return blocks32 * 18;
+    case DataType::q4_1: return blocks32 * 20;
+    case DataType::q5_0: return blocks32 * 22;
+    case DataType::q5_1: return blocks32 * 24;
+    case DataType::q8_0: return blocks32 * 34;
+    case DataType::q2_k: return blocks256 * 84;
+    case DataType::q3_k: return blocks256 * 110;
+    case DataType::q4_k: return blocks256 * 144;
+    case DataType::q5_k: return blocks256 * 176;
+    case DataType::q6_k: return blocks256 * 210;
+    case DataType::q8_k: return blocks256 * 292;
+    case DataType::iq2_xxs: return blocks256 * 66;
+    case DataType::iq2_xs: return blocks256 * 74;
+    case DataType::iq3_xxs: return blocks256 * 98;
+    case DataType::iq1_s: return blocks256 * 50;
+    case DataType::iq4_nl: return blocks32 * 18;
+    case DataType::iq3_s: return blocks256 * 110;
+    case DataType::iq2_s: return blocks256 * 82;
+    case DataType::iq4_xs: return blocks256 * 136;
+    case DataType::iq1_m: return blocks256 * 56;
+    case DataType::tq1_0: return blocks256 * 54;
+    case DataType::tq2_0: return blocks256 * 66;
     case DataType::unknown: return 0;
   }
   return 0;
@@ -336,11 +378,31 @@ GgufProbe probe_gguf(std::string_view path) {
 
 std::size_t dtype_size(DataType dtype) {
   switch (dtype) {
-    case DataType::f32: return sizeof(float);
+    case DataType::f32: return 4;
     case DataType::f16: return 2;
+    case DataType::bf16: return 2;
     case DataType::q4_0: return 18;
-    case DataType::q4_1: return sizeof(float) * 2 + 16;
-    case DataType::q8_0: return sizeof(float) + 32;
+    case DataType::q4_1: return 20;
+    case DataType::q5_0: return 22;
+    case DataType::q5_1: return 24;
+    case DataType::q8_0: return 34;
+    case DataType::q2_k: return 84;
+    case DataType::q3_k: return 110;
+    case DataType::q4_k: return 144;
+    case DataType::q5_k: return 176;
+    case DataType::q6_k: return 210;
+    case DataType::q8_k: return 292;
+    case DataType::iq2_xxs: return 66;
+    case DataType::iq2_xs: return 74;
+    case DataType::iq3_xxs: return 98;
+    case DataType::iq1_s: return 50;
+    case DataType::iq4_nl: return 18;
+    case DataType::iq3_s: return 110;
+    case DataType::iq2_s: return 82;
+    case DataType::iq4_xs: return 136;
+    case DataType::iq1_m: return 56;
+    case DataType::tq1_0: return 54;
+    case DataType::tq2_0: return 66;
     case DataType::unknown: return 0;
   }
   return 0;

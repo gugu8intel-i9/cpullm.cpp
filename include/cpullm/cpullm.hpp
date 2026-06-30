@@ -44,7 +44,12 @@ private:
   std::size_t offset_ = 0;
 };
 
-enum class DataType : std::uint8_t { f32, f16, q4_0, q4_1, q8_0, unknown };
+enum class DataType : std::uint8_t {
+  f32, f16, q4_0, q4_1, q5_0, q5_1, q8_0,
+  q2_k, q3_k, q4_k, q5_k, q6_k, q8_k,
+  iq2_xxs, iq2_xs, iq3_xxs, iq1_s, iq4_nl, iq3_s, iq2_s, iq4_xs, iq1_m,
+  bf16, tq1_0, tq2_0, unknown
+};
 
 std::size_t dtype_size(DataType dtype);
 
@@ -79,6 +84,16 @@ float fp16_to_f32(std::uint16_t bits) noexcept;
 float dot_gguf_q4_0_f32(std::span<const std::byte> row, std::span<const float> x);
 void matvec_gguf_q4_0_f32(std::span<const std::byte> rows, std::span<const float> x,
                           std::span<float> y, std::size_t cols);
+void matvec_gguf_q4_1_f32(std::span<const std::byte> rows, std::span<const float> x,
+                          std::span<float> y, std::size_t cols);
+void matvec_gguf_q8_0_f32(std::span<const std::byte> rows, std::span<const float> x,
+                          std::span<float> y, std::size_t cols);
+void matvec_gguf_f16_f32(std::span<const std::byte> rows, std::span<const float> x,
+                         std::span<float> y, std::size_t cols);
+bool matvec_gguf_any_f32(DataType dtype, std::span<const std::byte> rows, std::span<const float> x,
+                         std::span<float> y, std::size_t cols);
+const char* dtype_name(DataType dtype) noexcept;
+bool dtype_has_low_ram_matvec(DataType dtype) noexcept;
 
 class TensorStore {
 public:

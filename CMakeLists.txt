@@ -80,4 +80,8 @@ if(CPULLM_BUILD_TESTS)
   add_executable(cpullm-executor-tests tests/test_executor.cpp)
   target_link_libraries(cpullm-executor-tests PRIVATE cpullm)
   add_test(NAME cpullm-executor COMMAND cpullm-executor-tests)
+
+  add_executable(cpullm-quant-tests tests/test_quant_kernels.cpp)
+  target_link_libraries(cpullm-quant-tests PRIVATE cpullm)
+  add_test(NAME cpullm-quant COMMAND cpullm-quant-tests)
 endif()
