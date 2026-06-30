@@ -13,6 +13,7 @@ add_library(cpullm
   src/arena.cpp
   src/cpu.cpp
   src/engine.cpp
+  src/executor.cpp
   src/gguf.cpp
   src/quant.cpp
   src/residency.cpp
@@ -75,4 +76,8 @@ if(CPULLM_BUILD_TESTS)
   add_executable(cpullm-residency-tests tests/test_residency.cpp)
   target_link_libraries(cpullm-residency-tests PRIVATE cpullm)
   add_test(NAME cpullm-residency COMMAND cpullm-residency-tests)
+
+  add_executable(cpullm-executor-tests tests/test_executor.cpp)
+  target_link_libraries(cpullm-executor-tests PRIVATE cpullm)
+  add_test(NAME cpullm-executor COMMAND cpullm-executor-tests)
 endif()
