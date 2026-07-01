@@ -84,4 +84,8 @@ if(CPULLM_BUILD_TESTS)
   add_executable(cpullm-quant-tests tests/test_quant_kernels.cpp)
   target_link_libraries(cpullm-quant-tests PRIVATE cpullm)
   add_test(NAME cpullm-quant COMMAND cpullm-quant-tests)
+
+  add_executable(cpullm-tokenizer-tests tests/test_tokenizer.cpp)
+  target_link_libraries(cpullm-tokenizer-tests PRIVATE cpullm)
+  add_test(NAME cpullm-tokenizer COMMAND cpullm-tokenizer-tests)
 endif()

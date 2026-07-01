@@ -8,6 +8,7 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 #include <vector>
 
 namespace cpullm {
@@ -111,16 +112,40 @@ private:
   std::vector<Entry> entries_;
 };
 
+struct TokenizerStatus {
+  std::string model = "simple";
+  bool has_merges = false;
+  bool byte_fallback = true;
+  bool exact_bpe = false;
+  std::size_t vocab_size = 0;
+  std::size_t merge_count = 0;
+};
+
 class Tokenizer {
 public:
   explicit Tokenizer(std::vector<std::string> vocab = {});
+  Tokenizer(std::vector<std::string> vocab, std::vector<std::string> merges, std::string model);
   static Tokenizer from_gguf(const GgufFile& gguf);
   std::vector<std::uint32_t> encode(std::string_view text) const;
   std::string decode(std::span<const std::uint32_t> ids) const;
   std::size_t vocab_size() const noexcept;
+  const TokenizerStatus& status() const noexcept;
 
 private:
+  struct TrieNode {
+    std::unordered_map<unsigned char, std::uint32_t> next;
+    std::uint32_t token = UINT32_MAX;
+  };
+
   std::vector<std::string> vocab_;
+  std::unordered_map<std::string, std::uint32_t> token_to_id_;
+  std::unordered_map<std::string, std::uint32_t> merge_ranks_;
+  std::vector<TrieNode> trie_;
+  TokenizerStatus status_;
+
+  void build_indices();
+  std::vector<std::uint32_t> encode_bpe(std::string_view text) const;
+  std::vector<std::uint32_t> encode_trie(std::string_view text) const;
 };
 
 enum class ModelFormat : std::uint8_t { manifest, gguf_probe };
@@ -166,6 +191,7 @@ public:
   std::span<const GgufMetadataEntry> metadata() const noexcept;
   std::optional<std::string> metadata_value(std::string_view key) const;
   std::span<const std::string> tokenizer_tokens() const noexcept;
+  std::span<const std::string> tokenizer_merges() const noexcept;
   const GgufTensorInfo* find_tensor(std::string_view name) const noexcept;
   std::span<const std::byte> tensor_bytes(const GgufTensorInfo& tensor) const;
   std::uint64_t prefetch_tensors(bool touch_pages = false) const;

@@ -203,6 +203,7 @@ struct GgufFile::Impl {
   std::vector<GgufTensorInfo> tensors;
   std::vector<GgufMetadataEntry> metadata;
   std::vector<std::string> tokenizer_tokens;
+  std::vector<std::string> tokenizer_merges;
 
   ~Impl() {
 #if defined(_WIN32)
@@ -258,14 +259,16 @@ GgufFile GgufFile::open(std::string_view path_sv) {
     auto key = c.read_string();
     const auto type = static_cast<MetaType>(c.read<std::uint32_t>());
     std::string value;
-    if (key == "tokenizer.ggml.tokens" && type == MetaType::array) {
+    if ((key == "tokenizer.ggml.tokens" || key == "tokenizer.ggml.merges") && type == MetaType::array) {
       const auto elem_type = static_cast<MetaType>(c.read<std::uint32_t>());
       const auto count = c.read<std::uint64_t>();
-      if (elem_type != MetaType::string) throw std::runtime_error("tokenizer.ggml.tokens is not a string array");
-      impl->tokenizer_tokens = read_string_array(c, count);
+      if (elem_type != MetaType::string) throw std::runtime_error(key + " is not a string array");
+      auto arr = read_string_array(c, count);
       std::ostringstream v;
-      v << "[" << impl->tokenizer_tokens.size() << " tokenizer tokens]";
+      v << "[" << arr.size() << " strings]";
       value = v.str();
+      if (key == "tokenizer.ggml.tokens") impl->tokenizer_tokens = std::move(arr);
+      else impl->tokenizer_merges = std::move(arr);
     } else {
       value = scalar_to_string(c, type);
     }
@@ -317,6 +320,10 @@ std::optional<std::string> GgufFile::metadata_value(std::string_view key) const 
 
 std::span<const std::string> GgufFile::tokenizer_tokens() const noexcept {
   return impl_ ? std::span<const std::string>(impl_->tokenizer_tokens) : std::span<const std::string>();
+}
+
+std::span<const std::string> GgufFile::tokenizer_merges() const noexcept {
+  return impl_ ? std::span<const std::string>(impl_->tokenizer_merges) : std::span<const std::string>();
 }
 
 const GgufTensorInfo* GgufFile::find_tensor(std::string_view name) const noexcept {

@@ -23,9 +23,9 @@ int main() {
   assert(std::fabs(c[3] - 167.0f) < 1e-5f);
 
   cpullm::Tokenizer tok({"<unk>", "hello", "world"});
-  auto ids = tok.encode("hello fast world");
+  auto ids = tok.encode("hello world");
   assert(ids.size() == 3);
-  assert(tok.decode(ids) == "hello <unk> world");
+  assert(tok.decode(ids) == "hello<unk>world");
 
   auto q = cpullm::quantize_q4_0(std::span<const float>(a, 6));
   const float dot = cpullm::dot_q4_0_f32(q, std::span<const float>(a, 6));

@@ -186,7 +186,7 @@ ExecutionPlan build_execution_plan(const Model& model) {
   plan.tensors = gguf->tensor_count();
   plan.tokenizer_tokens = gguf->tokenizer_tokens().size();
   if (plan.tokenizer_tokens == 0) issue(plan, "tokenizer.missing", "GGUF tokenizer.ggml.tokens is missing or empty");
-  issue(plan, "tokenizer.bpe_unwired", "GGUF BPE/SentencePiece merge/rank handling is not wired yet; token array loading alone is insufficient for parity across model families");
+  if (gguf->tokenizer_merges().empty()) issue(plan, "tokenizer.merges_missing", "GGUF tokenizer merges are missing; cpullm will use longest-match/byte fallback rather than exact merge-rank BPE");
 
   analyze_kernels(plan, *gguf);
 

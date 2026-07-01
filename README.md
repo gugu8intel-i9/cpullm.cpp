@@ -2,7 +2,7 @@
 
 A high-performance, lightweight, CPU-first LLM runtime foundation designed to become a drop-in alternative to llama.cpp.
 
-> Status: active inference-engine foundation. The project now includes llama.cpp-style CLI entry points, common llama.cpp flag parsing plus model-family-agnostic production-readiness validation including warning-clean MTP/speculative options with graceful fallback by default and strict mode, a minimal llama-compatible C ABI scaffold, streaming generation APIs, session/KV-cache management, sampler stack, real dense and MoE graph executors, RMSNorm/RoPE/attention/short-convolution/SwiGLU/logits operators, GGUF tokenizer loading, real decode fail-fast boundary, internal q4_0 primitives, broad GGUF tensor type recognition, low-RAM mapped F16/Q4_0/Q4_1/Q8_0 matvec, hardened memory-mapped GGUF metadata/tensor-directory loading, tensor storage, mapped-weight benchmark scaffolding with finite deterministic inputs, warning-clean CPU feature detection, arena allocation, tokenizer scaffolding, model manifest loading, tests, and architecture notes.
+> Status: active inference-engine foundation. The project now includes llama.cpp-style CLI entry points, common llama.cpp flag parsing plus model-family-agnostic production-readiness validation including warning-clean MTP/speculative options with graceful fallback by default and strict mode, a minimal llama-compatible C ABI scaffold, streaming generation APIs, session/KV-cache management, sampler stack, real dense and MoE graph executors, RMSNorm/RoPE/attention/short-convolution/SwiGLU/logits operators, GGUF tokenizer loading with merge-aware BPE/trie fallback, real decode fail-fast boundary, internal q4_0 primitives, broad GGUF tensor type recognition, low-RAM mapped F16/Q4_0/Q4_1/Q8_0 matvec, hardened memory-mapped GGUF metadata/tensor-directory loading, tensor storage, mapped-weight benchmark scaffolding with finite deterministic inputs, warning-clean CPU feature detection, arena allocation, tokenizer scaffolding, model manifest loading, tests, and architecture notes.
 
 ## Goals
 
@@ -93,7 +93,7 @@ Benchmark:
 - `cpullm::TensorStore` — typed tensor registry for future memory-mapped model weights.
 - `cpullm::execute_dense_block()` and `execute_moe_block()` — real single-token dense/MoE graph executor foundations with top-k expert routing.
 - `cpullm::rms_norm`, `rope_inplace`, `causal_attention`, `short_convolution_1d`, `swiglu_mlp`, and `logits_projection` — real lightweight decoder operator primitives.
-- `cpullm::Tokenizer::from_gguf()` — loads tokenizer token arrays from GGUF metadata.
+- `cpullm::Tokenizer::from_gguf()` — loads GGUF token arrays and merges, with cached token maps, merge BPE, trie longest-match fallback, and byte fallback.
 - `cpullm::greedy_decode_real()` — real decode boundary that refuses unsupported GGUF architectures instead of mocking output.
 - `cpullm::architecture_profiles()` — registry for common GGUF families including LLaMA, Qwen, Mistral/Mixtral, Gemma, Phi, DeepSeek, Granite, Falcon, MPT, StarCoder, LFM, and more.
 - `cpullm::build_execution_plan()` — production-readiness planner for GGUF compatibility, kernel coverage, tensor requirements, and architecture blockers across model families.
@@ -127,7 +127,7 @@ python3 scripts/benchmark_lfm25_230m_q4_cpu.py --threads 2
 
 ## Inference engine
 
-See [docs/inference_engine.md](docs/inference_engine.md), [docs/gguf_loader.md](docs/gguf_loader.md), [docs/gguf_tensor_types.md](docs/gguf_tensor_types.md), [docs/real_executor.md](docs/real_executor.md), [docs/production_readiness.md](docs/production_readiness.md), [docs/architecture_registry.md](docs/architecture_registry.md), and [docs/universal_acceleration.md](docs/universal_acceleration.md).
+See [docs/tokenizer_parity.md](docs/tokenizer_parity.md), [docs/inference_engine.md](docs/inference_engine.md), [docs/gguf_loader.md](docs/gguf_loader.md), [docs/gguf_tensor_types.md](docs/gguf_tensor_types.md), [docs/real_executor.md](docs/real_executor.md), [docs/production_readiness.md](docs/production_readiness.md), [docs/architecture_registry.md](docs/architecture_registry.md), and [docs/universal_acceleration.md](docs/universal_acceleration.md).
 
 The engine is now structured around reusable sessions, explicit KV cache, quantized kernels, deterministic sampling, streaming callbacks, speculative fallback reporting, and zero-copy mapped GGUF tensor access. LFM2.5 metadata and Q4_0 tensors can be loaded and benchmarked directly from GGUF. GGUF generation now enters a real decode boundary and fails for unsupported architectures instead of producing synthetic text.
 
